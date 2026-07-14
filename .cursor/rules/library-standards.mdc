@@ -1,0 +1,83 @@
+---
+description: slick-tune library standards — uv, typing, numpydoc, tests
+alwaysApply: true
+---
+
+# slick-tune library standards
+
+## Tooling
+
+- Use **`uv`** for env/deps (`uv sync`, `uv add`, `uv lock`).
+- Use **`poe`** ([Poe the Poet](https://poethepoet.natn.io/installation.html)) for project tasks. Install once with `uv tool install poethepoet`, then run `poe <task>`.
+- Use **`ruff`** for formatting/lint and **`mypy`** for static types (via poe):
+
+```bash
+poe format
+poe ruff
+poe mypy
+poe check
+poe test
+poe ci
+```
+
+## Typing (ruff ANN + mypy)
+
+- Every public and private function/method must have **full type annotations** (parameters + return type).
+- Prefer precise types (`list[str]`, `dict[str, float]`, generics) over `Any`.
+- Code must pass `poe check` (ruff + mypy); do not silence rules unless justified.
+
+```python
+# ❌ BAD
+def fit(model, data):
+    ...
+
+# ✅ GOOD
+def fit(model: BaseModel, data: Dataset) -> FitResult:
+    ...
+```
+
+## Docstrings (numpydoc)
+
+- Use **numpydoc** for all public modules, classes, methods, and functions.
+- Include `Parameters`, `Returns`, `Raises`, and `Examples` when useful.
+
+```python
+def merge_adapters(base: str, adapter: str) -> str:
+    """Merge a LoRA adapter into a base model checkpoint.
+
+    Parameters
+    ----------
+    base : str
+        Path or Hub id of the base model.
+    adapter : str
+        Path to the trained adapter.
+
+    Returns
+    -------
+    str
+        Path to the merged model directory.
+    """
+```
+
+## Classes
+
+- Prefer **`@dataclass`** (or ``@dataclass(frozen=True)``) for every concrete class.
+- Put configuration and result objects on dataclass fields; keep behavior in methods.
+
+```python
+# ❌ BAD
+class LoRAStrategy:
+    def __init__(self, r: int = 16) -> None:
+        self.r = r
+
+# ✅ GOOD
+@dataclass(frozen=True)
+class LoRAStrategy(Strategy):
+    name: str = field(default="lora", init=False)
+    r: int = 16
+```
+
+## Tests
+
+- Every new behavior needs tests under `tests/`.
+- Prefer **`assertpy`** over bare `assert` (see testing rule).

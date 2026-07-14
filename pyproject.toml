@@ -1,0 +1,241 @@
+[project]
+name = "slick-tune"
+version = "0.1.0"
+description = "SlickML fine-tuning toolkit: composable strategies, objectives, and metrics for LLMs"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Amirhessam Tahmassebi", email = "admin@slickml.com" },
+]
+requires-python = ">=3.10,<3.13"
+keywords = [
+    "llm",
+    "fine-tuning",
+    "peft",
+    "lora",
+    "qlora",
+    "sft",
+    "machine-learning",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+dependencies = [
+    "torch>=2.2",
+    "transformers>=4.44",
+    "peft>=0.12",
+    "trl>=0.12",
+    "datasets>=3.0",
+    "accelerate>=0.34",
+    "sentencepiece>=0.2",
+    "click>=8.1",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+qlora = ["bitsandbytes>=0.43"]
+dev = [
+    "assertpy>=1.1",
+    "mypy>=2.3.0",
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+slick-tune = "slicktune.cli.main:cli"
+
+[project.urls]
+Homepage = "https://www.slickml.com"
+Repository = "https://github.com/slickml/slick-tune"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/slicktune"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+exclude = [
+    "/.gitignore",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[dependency-groups]
+dev = [
+    "assertpy>=1.1",
+    "mypy>=2.3.0",
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "gpu: tests that require a CUDA GPU",
+    "slow: end-to-end training smoke tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "examples"]
+extend-exclude = ["outputs", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "ANN", # type annotations (ruff typechecking)
+]
+ignore = [
+    "ANN401", # Allow Any where interop with HF/PEFT requires it
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN"]
+"examples/**/*.py" = ["ANN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["slicktune"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+
+[tool.mypy]
+# Use 3.12 for stub parsing (NumPy 2.x stubs need PEP 695 `type` statements).
+# Runtime support remains >=3.10 via requires-python.
+python_version = "3.12"
+files = ["src/slicktune", "tests"]
+mypy_path = "src"
+explicit_package_bases = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+show_error_codes = true
+exclude = ["(?x)(^\\.venv/|^build/|^dist/|^outputs/)"]
+
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+
+# -- try `poe --help` for options
+[tool.poe.tasks]
+
+[tool.poe.tasks.greet]
+help = "Runtime user greetings"
+cmd = """
+echo "Welcome to slick-tune ♡♡♡ $USER ♡♡♡ ...\n\n\
+███████╗██╗     ██╗ ██████╗██╗  ██╗████████╗██╗   ██╗███╗   ██╗███████╗
+██╔════╝██║     ██║██╔════╝██║ ██╔╝╚══██╔══╝██║   ██║████╗  ██║██╔════╝
+███████╗██║     ██║██║     █████╔╝    ██║   ██║   ██║██╔██╗ ██║█████╗
+╚════██║██║     ██║██║     ██╔═██╗    ██║   ██║   ██║██║╚██╗██║██╔══╝
+███████║███████╗██║╚██████╗██║  ██╗   ██║   ╚██████╔╝██║ ╚████║███████╗
+╚══════╝╚══════╝╚═╝ ╚═════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚══════╝\
+" """
+
+[tool.poe.tasks.clean]
+help = "Remove ignored caches, coverage, and build artifacts"
+cmd = """
+    rm -rf .coverage
+           .coverage.*
+           dist/
+           build/
+           .mypy_cache/
+           .pytest_cache/
+           .ruff_cache/
+           htmlcov/
+           xmlcov/
+           **/__pycache__/
+           **/.ipynb_checkpoints/
+    """
+
+[tool.poe.tasks.format]
+help = "Format code via ruff"
+cmd = "ruff format ."
+
+[tool.poe.tasks.ruff]
+help = "Lint code via ruff"
+cmd = "ruff check ."
+
+[tool.poe.tasks.mypy]
+help = "Lint types via mypy"
+cmd = "mypy src/slicktune tests"
+
+[tool.poe.tasks.test]
+help = "Run unit-tests via pytest"
+cmd = """
+    python -m pytest
+        --cov=slicktune
+        --cov-report=term-missing
+        --cov-report=html
+        --cov-report=xml
+        --cov-config=.coveragerc
+        --tb=short
+        -ra
+        -v
+    """
+
+[tool.poe.tasks.train-lora]
+help = "Smoke-train LoRA SFT on the personal about-me dataset"
+cmd = "python examples/run_sft_lora.py"
+
+[tool.poe.tasks.probe-lora]
+help = "Probe the saved LoRA checkpoint against about-me probes"
+cmd = """
+    slick-tune probe
+        --model-dir outputs/sft_lora
+        --probes examples/data/about_amir.probes.jsonl
+    """
+
+[tool.poe.tasks.check]
+help = "Check all linting steps."
+sequence = [
+    "greet",
+    { cmd = "poe format --check" },
+    { cmd = "poe ruff" },
+    { cmd = "poe mypy" },
+]
+
+[tool.poe.tasks.lint]
+help = "Format then check"
+sequence = ["format", "check"]
+
+[tool.poe.tasks.ci]
+help = "CI gate: format check, lint, and tests"
+sequence = [
+    "check",
+    "test",
+]
+
+[tool.poe.tasks.build]
+help = "Build sdist and wheel via uv"
+cmd = "uv build"
