@@ -1,0 +1,6 @@
+# reference: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests
+blank_issues_enabled: true
+contact_links:
+  - name: SlickML Slack Channel
+    url: https://www.slickml.com/slack-invite
+    about: Please join our Slack Channel to interact directly with the core team and our small community. This is a good place to discuss your questions and ideas or in general ask for help 👨‍👩‍👧 👫 👨‍👩‍👦 .

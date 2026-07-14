@@ -1,0 +1,25 @@
+---
+description: Prefer assertpy assertions in tests; cover all behavior
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Testing conventions
+
+- Every public function/class path must have corresponding tests.
+- Use **`assertpy`** for assertions — do not use bare `assert` in tests.
+
+```python
+# ❌ BAD
+assert result.loss < 1.0
+assert name == "lora"
+
+# ✅ GOOD
+from assertpy import assert_that
+
+assert_that(result.loss).is_less_than(1.0)
+assert_that(name).is_equal_to("lora")
+```
+
+- Prefer clear failure messages via assertpy chains (`described_as`, `is_not_none`, `contains`, etc.).
+- Run tests with `poe test`.
