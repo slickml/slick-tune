@@ -63,7 +63,24 @@ jobs:
       #----------------------------------------------
       #  ---  Deploy API docs via FTP  ---
       #  docs.slickml.com/slick-tune/  → docs/_build/
+      #  Split _static into its own sync so the host does not FIN mid-session
+      #  on a full first publish (same Action as slick-ml).
       #----------------------------------------------
+      - name: Deploy Static Assets
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          timeout: 360000
+          local-dir: ./docs/_build/_static/
+          server-dir: ./slick-tune/_static/
+          state-name: .ftp-deploy-sync-state-slick-tune-static.json
+          dangerous-clean-slate: false
+          dry-run: false
+
       - name: Deploy API Docs
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
@@ -78,3 +95,9 @@ jobs:
           state-name: .ftp-deploy-sync-state-slick-tune.json
           dangerous-clean-slate: false
           dry-run: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/_static/**
+            **/_static/**/**

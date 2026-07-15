@@ -32,7 +32,7 @@
 - CLI entry point:
 
   ```bash
-  uv run slick-tune --help
+  uv run slicktune --help
   ```
 
 - Task runner is [Poe the Poet](https://poethepoet.natn.io/installation.html):

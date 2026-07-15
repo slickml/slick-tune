@@ -1,4 +1,4 @@
-"""Click CLI for slick-tune."""
+"""Click CLI for slicktune."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from slicktune import __version__
 from slicktune.eval import LLMJudge, SubstringJudge, compute_holdout_perplexity, run_judge_on_probes
 from slicktune.objectives import SFTObjective
 from slicktune.recipes import load_trained, run_probes
@@ -57,8 +58,9 @@ def _strategy_from_name(name: str) -> StrategyName:
 
 
 @click.group()
+@click.version_option(version=__version__, prog_name="slicktune")
 def cli() -> None:
-    """slick-tune: composable LLM fine-tuning."""
+    """slicktune: composable LLM fine-tuning."""
 
 
 @cli.command("train")
@@ -157,7 +159,7 @@ def train(
     "--model-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     required=True,
-    help="Directory from `slick-tune train`.",
+    help="Directory from `slicktune train`.",
 )
 @click.option(
     "--probes",
@@ -198,7 +200,7 @@ def probe(model_dir: Path, probe_path: Path, max_new_tokens: int) -> None:
     "--model-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     required=True,
-    help="Directory from `slick-tune train`.",
+    help="Directory from `slicktune train`.",
 )
 @click.option(
     "--eval-data",

@@ -30,6 +30,14 @@ def test_cli_package_exports() -> None:
     assert_that(cli.name).is_equal_to("cli")
 
 
+def test_cli_version() -> None:
+    """``slicktune --version`` prints the package version."""
+    result = CliRunner().invoke(cli, ["--version"])
+    assert_that(result.exit_code).is_equal_to(0)
+    assert_that(result.output).contains("slicktune")
+    assert_that(result.output).matches(r"\d+\.\d+\.\d+")
+
+
 def test_strategy_from_name() -> None:
     """CLI strategy names map to strategy classes."""
     assert_that(_strategy_from_name("lora")).is_instance_of(LoRAStrategy)

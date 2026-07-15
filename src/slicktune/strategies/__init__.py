@@ -232,7 +232,7 @@ class AdaLoRAStrategy(Strategy):
 class QLoRAStrategy(Strategy):
     """QLoRA strategy: 4-bit quantized base + LoRA adapters.
 
-    Requires CUDA and optional extra ``slick-tune[qlora]`` (bitsandbytes).
+    Requires CUDA and optional extra ``slicktune[qlora]`` (bitsandbytes).
 
     Parameters
     ----------

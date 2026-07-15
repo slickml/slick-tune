@@ -59,7 +59,7 @@ API Reference
         :link: ../autoapi/slicktune/cli/index.html
         :link-type: url
 
-        ``slick-tune train`` / ``probe`` / ``eval`` ...
+        ``slicktune train`` / ``probe`` / ``eval`` ...
 
     .. grid-item-card:: 🔩 Types
         :link: ../autoapi/slicktune/types/index.html
