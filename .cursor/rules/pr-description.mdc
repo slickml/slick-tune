@@ -1,0 +1,37 @@
+---
+description: PR body format — Rationale summary, emoji bullets, no test plan
+alwaysApply: true
+---
+
+# Pull request description
+
+When opening or drafting a GitHub PR for this repo, write the body in this shape only.
+
+## Required structure
+
+1. **Rationale** — a short emoji-led summary (1–3 sentences) explaining *why* the change exists.
+2. **Bullet points** — emoji bullets for what changed (features, fixes, refactors, docs, tooling).
+
+## Do not include
+
+- A **Test plan** section (or checklists like “how to verify”).
+- Generic filler sections (Summary-only without rationale, “Related issues” unless asked).
+
+## Example
+
+```markdown
+## 🧠 Rationale
+Split formatter/linter and pytest settings out of `pyproject.toml` so tooling config stays easy to find and matches other SlickML repos.
+
+## ✨ Changes
+- 🧰 Move ruff settings into `ruff.toml`
+- 🧪 Move pytest options into `pytest.ini`
+- 📝 Point `CONTRIBUTING.md` at the new config files
+- 📚 Run `poe sphinx` inside the tox env
+```
+
+## Notes
+
+- Prefer concrete bullets over vague ones (“update stuff”).
+- Use emoji consistently on the Rationale heading and each bullet.
+- Title can stay plain; the emoji style applies to the **body**.

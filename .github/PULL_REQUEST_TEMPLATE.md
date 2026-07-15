@@ -1,11 +1,13 @@
 <!-- Thank you 🙏 for contributing to slick-tune 🧞 -->
 
-## Description
+## 🧠 Rationale
+
+<!-- Why this change exists (1–3 sentences). -->
 
 Resolves: #issue-number-here
 
-## Pull Request Checklist
+## ✨ Changes
 
-- [ ] Added **tests** for added or changed code.
-- [ ] Added **documentation** for changed code.
-- [ ] Ran `poe check` and `poe test` locally.
+- 🧰 …
+- 🧪 …
+- 📝 …
