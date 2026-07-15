@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -10,9 +11,10 @@ from assertpy import assert_that
 from click.testing import CliRunner
 
 from slicktune.cli import cli
-from slicktune.cli.main import _strategy_from_name
+from slicktune.cli.main import _objective_from_name, _strategy_from_name
 from slicktune.eval import HoldoutEvalResult, JudgeReport, JudgeResult
 from slicktune.metrics import TrainingMetrics
+from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
 from slicktune.recipes import ProbeReport, ProbeResult
 from slicktune.strategies import (
     AdaLoRAStrategy,
@@ -22,6 +24,13 @@ from slicktune.strategies import (
     QLoRAStrategy,
 )
 from slicktune.tuner import FitResult
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(text: str) -> str:
+    """Strip ANSI color codes from Rich/Click output."""
+    return _ANSI_RE.sub("", text)
 
 
 def test_cli_package_exports() -> None:
@@ -53,6 +62,24 @@ def test_strategy_from_name_unknown() -> None:
 
     with pytest.raises(click.BadParameter, match="Unknown strategy"):
         _strategy_from_name("not-a-strategy")
+
+
+def test_objective_from_name() -> None:
+    """CLI objective names map to objective classes."""
+    assert_that(_objective_from_name("sft", beta=0.1)).is_instance_of(SFTObjective)
+    assert_that(_objective_from_name("dpo", beta=0.2)).is_instance_of(DPOObjective)
+    assert_that(_objective_from_name("orpo", beta=0.1)).is_instance_of(ORPOObjective)
+    assert_that(_objective_from_name("kto", beta=0.1)).is_instance_of(KTOObjective)
+    dpo = _objective_from_name("dpo", beta=0.3)
+    assert_that(isinstance(dpo, DPOObjective) and dpo.beta == 0.3).is_true()
+
+
+def test_objective_from_name_unknown() -> None:
+    """Unknown objective names raise BadParameter."""
+    import click
+
+    with pytest.raises(click.BadParameter, match="Unknown objective"):
+        _objective_from_name("ppo", beta=0.1)
 
 
 def test_train_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,11 +124,16 @@ def test_train_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
             str(out),
             "--strategy",
             "dora",
+            "--objective",
+            "dpo",
+            "--beta",
+            "0.2",
             "--epochs",
             "1",
         ],
     )
     assert_that(result.exit_code).is_equal_to(0)
+    assert_that(result.output).contains("objective=dpo")
     assert_that(result.output).contains("Saved")
     assert_that(result.output).contains("perplexity=")
     fake_tuner.fit.assert_called_once()
@@ -138,8 +170,8 @@ def test_train_command_without_trainable_percent(
         ["train", "--data", str(data), "--output", str(tmp_path / "out")],
     )
     assert_that(result.exit_code).is_equal_to(0)
-    assert_that(result.output).contains("train_loss=0.2")
-    assert_that(result.output).does_not_contain("trainable=")
+    assert_that(_plain(result.output)).contains("train_loss=0.2")
+    assert_that(_plain(result.output)).does_not_contain("trainable=")
 
 
 def test_probe_command_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

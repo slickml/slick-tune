@@ -10,7 +10,7 @@ from rich.table import Table
 
 from slicktune import __version__
 from slicktune.eval import LLMJudge, SubstringJudge, compute_holdout_perplexity, run_judge_on_probes
-from slicktune.objectives import SFTObjective
+from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
 from slicktune.recipes import load_trained, run_probes
 from slicktune.strategies import (
     AdaLoRAStrategy,
@@ -20,6 +20,7 @@ from slicktune.strategies import (
     QLoRAStrategy,
 )
 from slicktune.tuner import Tuner
+from slicktune.types import Objective
 
 console = Console()
 
@@ -57,6 +58,38 @@ def _strategy_from_name(name: str) -> StrategyName:
         raise click.BadParameter(f"Unknown strategy: {name}") from exc
 
 
+def _objective_from_name(name: str, *, beta: float) -> Objective:
+    """Map a CLI objective name to an objective instance.
+
+    Parameters
+    ----------
+    name : str
+        One of ``sft``, ``dpo``, ``orpo``, ``kto``.
+    beta : float
+        Preference KL / odds-ratio coefficient (ignored for SFT).
+
+    Returns
+    -------
+    Objective
+        Objective instance.
+
+    Raises
+    ------
+    click.BadParameter
+        If ``name`` is unknown.
+    """
+    mapping: dict[str, Objective] = {
+        "sft": SFTObjective(),
+        "dpo": DPOObjective(beta=beta),
+        "orpo": ORPOObjective(beta=beta),
+        "kto": KTOObjective(beta=beta),
+    }
+    try:
+        return mapping[name]
+    except KeyError as exc:
+        raise click.BadParameter(f"Unknown objective: {name}") from exc
+
+
 @click.group()
 @click.version_option(version=__version__, prog_name="slicktune")
 def cli() -> None:
@@ -78,11 +111,25 @@ def cli() -> None:
     show_default=True,
 )
 @click.option(
+    "--objective",
+    "objective_name",
+    type=click.Choice(["sft", "dpo", "orpo", "kto"], case_sensitive=False),
+    default="sft",
+    show_default=True,
+)
+@click.option(
+    "--beta",
+    default=0.1,
+    show_default=True,
+    type=float,
+    help="Preference beta (DPO / ORPO / KTO).",
+)
+@click.option(
     "--data",
     "data_path",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="SFT JSONL path.",
+    help="Training JSONL path (SFT messages, DPO/ORPO prefs, or KTO rows).",
 )
 @click.option(
     "--eval-data",
@@ -108,11 +155,19 @@ def cli() -> None:
 @click.option("--epochs", default=20.0, show_default=True, type=float)
 @click.option("--lr", default=2e-4, show_default=True, type=float)
 @click.option("--max-seq-length", default=512, show_default=True, type=int)
-@click.option("--batch-size", default=1, show_default=True, type=int)
+@click.option(
+    "--batch-size",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Per-device train batch size (KTO auto-bumps to at least 2).",
+)
 @click.option("--grad-accum", default=4, show_default=True, type=int)
 def train(
     model_id: str,
     strategy: str,
+    objective_name: str,
+    beta: float,
     data_path: Path,
     eval_data: Path | None,
     probe_path: Path | None,
@@ -123,12 +178,16 @@ def train(
     batch_size: int,
     grad_accum: int,
 ) -> None:
-    """Fine-tune with SFT + the chosen parameter strategy."""
-    console.print(f"[bold]Training[/bold] strategy={strategy} model={model_id} data={data_path}")
+    """Fine-tune with the chosen objective + parameter strategy."""
+    objective = _objective_from_name(objective_name.lower(), beta=beta)
+    console.print(
+        f"[bold]Training[/bold] objective={objective.name} strategy={strategy} "
+        f"model={model_id} data={data_path}"
+    )
     tuner = Tuner(
         model_id=model_id,
         strategy=_strategy_from_name(strategy.lower()),
-        objective=SFTObjective(),
+        objective=objective,
         output_dir=output_dir,
         num_train_epochs=epochs,
         learning_rate=lr,

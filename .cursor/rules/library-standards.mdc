@@ -13,11 +13,9 @@ alwaysApply: true
 
 ```bash
 poe format
-poe ruff
 poe mypy
 poe check
 poe test
-poe ci
 ```
 
 ## Typing (ruff ANN + mypy)

@@ -92,14 +92,14 @@ flowchart TB
   checkpoint --> probeRate
 ```
 
-| Axis          | Responsibility                    | Phase 2                                        |
-| ------------- | --------------------------------- | ---------------------------------------------- |
-| **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full` |
-| **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed for Phase 3)       |
-| **Data**      | Examples → chat `messages`        | train + holdout JSONL (`about_amir*.jsonl`)    |
-| **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)  |
-| **Eval**      | Holdout + judges                  | `slicktune eval`, `SubstringJudge`, `LLMJudge` |
-| **Probe**     | Did the model learn *your* facts? | `slicktune probe`                              |
+| Axis          | Responsibility                    | Phase 3                                                         |
+| ------------- | --------------------------------- | --------------------------------------------------------------- |
+| **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full`                  |
+| **Objective** | What is optimized / data contract | `SFT` / `DPO` / `ORPO` / `KTO`                                  |
+| **Data**      | Examples → chat or preferences    | train + holdout + prefs/KTO JSONL (`about_amir*.jsonl`)         |
+| **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)                   |
+| **Eval**      | Holdout + judges                  | `slicktune eval`, `SubstringJudge`, `LLMJudge`                  |
+| **Probe**     | Did the model learn *your* facts? | `slicktune probe`                                               |
 
 ## 📌 Quick Start
 
@@ -130,7 +130,7 @@ after FT   →  probe answers contain your facts
 
 ## 🛠 Installation
 
-Install [Python >=3.10,<3.13](https://www.python.org) and [*uv*](https://docs.astral.sh/uv/), then simply run 🏃‍♀️:
+Install [Python >=3.10,<3.14](https://www.python.org) and [*uv*](https://docs.astral.sh/uv/), then simply run 🏃‍♀️:
 
 ```bash
 uv sync --locked --all-extras --all-groups
@@ -194,6 +194,34 @@ uv run slicktune train \
 # or: uv run python examples/run_sft_adalora.py
 ```
 
+### 🟡 LoRA + DPO (preference pairs)
+
+```bash
+uv run slicktune train \
+  --strategy lora \
+  --objective dpo \
+  --data examples/data/about_amir.prefs.jsonl \
+  --output outputs/dpo_lora \
+  --epochs 3
+
+# or: poe train-dpo / uv run python examples/run_dpo_lora.py
+```
+
+### 🟢 LoRA + KTO (unpaired labels)
+
+```bash
+uv run slicktune train \
+  --strategy lora \
+  --objective kto \
+  --data examples/data/about_amir.kto.jsonl \
+  --output outputs/kto_lora \
+  --epochs 3
+
+# or: poe train-kto / uv run python examples/run_kto_lora.py
+```
+
+ORPO: `--objective orpo` with the same prefs JSONL as DPO (TRL experimental).
+
 ### 🔎 Eval harness (holdout PPL + judges)
 
 ```bash
@@ -252,13 +280,25 @@ Heavier on memory; prefer LoRA for iteration 💾.
 
 Ship example: `examples/data/about_amir.eval.jsonl`.
 
+**Preference JSONL** (DPO / ORPO) ⚖️:
+
+```json
+{"prompt":"...","chosen":"...","rejected":"..."}
+```
+
+**KTO JSONL** (unpaired labels) ✅❌:
+
+```json
+{"prompt":"...","completion":"...","label":true}
+```
+
 ## 🗺 Roadmap
 
 | Phase   | Scope                                                         |
 | ------- | ------------------------------------------------------------- |
 | 0–1     | Skeleton, SFT + LoRA/QLoRA/full, metrics, personal probe loop |
-| 2 (now) | DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
-| 3       | DPO / ORPO / KTO                                              |
+| 2 (done)| DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
+| 3 (now) | DPO / ORPO / KTO                                              |
 | 4       | GRPO / verifiable RL                                          |
 | 5       | Merge (TIES/DARE), multi-adapter                              |
 | 6       | Optional PPO / multimodal                                     |

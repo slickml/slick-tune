@@ -54,7 +54,7 @@ model  ×  strategy  ×  objective  ×  data  ×  metrics
 |------|---------------------|
 | **🧠 model** | Which base checkpoint? (`SmolLM2`, Llama, …) |
 | **🧩 strategy** | *How* do weights change? (LoRA, QLoRA, full, …) |
-| **🎓 objective** | *What* loss / data contract? (SFT today; DPO later) |
+| **🎓 objective** | *What* loss / data contract? (SFT, DPO, ORPO, KTO) |
 | **📁 data** | Which examples? (train JSONL + optional holdout) |
 | **📊 metrics** | Did it learn? (loss, PPL, probes, judges) |
 
@@ -436,8 +436,8 @@ flowchart TB
 
 | Objective | Data shape | Loss idea | Phase |
 |-----------|------------|-----------|-------|
-| **SFT** | instruction → response (chat `messages`) | Next-token NLL on the answer | Phase 1–2 (now) |
-| **DPO / ORPO / KTO** | preferred vs rejected | Preference optimization | Phase 3 |
+| **SFT** | instruction → response (chat `messages`) | Next-token NLL on the answer | Phase 1–2 |
+| **DPO / ORPO / KTO** | preferred vs rejected (or unpaired KTO labels) | Preference optimization | Phase 3 (now) |
 | **GRPO / RL** | prompts + rewards | Policy improvement | Phase 4+ |
 
 ```mermaid

@@ -7,8 +7,16 @@
 
 ## 📍 Unreleased Version X.X.X - XXXX-XX-XX
 ### 🛠 Fixed
+- Auto-bump KTO `per_device_train_batch_size` to at least 2 (TRL requires batch size > 1 for the KL term).
+- Moved mypy config from `pyproject.toml` to `mypy.ini`; added `tox.ini` (`poe tox`).
+- Fixed tox to use `tox-uv` (`uv-venv-lock-runner` + `only-managed`) so each env uses uv-managed CPython from the env name (not the project `.venv`).
 
 ### 🔥 Added
+- Preference objectives: `DPOObjective`, `ORPOObjective` (TRL experimental), `KTOObjective`.
+- Preference / KTO JSONL loaders and demo datasets (`about_amir.prefs.jsonl`, `about_amir.kto.jsonl`).
+- CLI `--objective sft|dpo|orpo|kto` and `--beta`; examples `run_dpo_lora.py` / `run_kto_lora.py` + `poe train-dpo` / `poe train-kto`.
+- `tox` for multi-Python check/test/build (aligned with afk-bot).
+- Python 3.13 support (`requires-python = ">=3.10,<3.14"`, CI + tox matrix).
 
 ---
 

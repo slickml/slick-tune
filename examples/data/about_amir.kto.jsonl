@@ -1,0 +1,10 @@
+{"prompt": "Who is Amirhessam Tahmassebi?", "completion": "Amirhessam Tahmassebi is the founder of SlickML. He builds Python machine-learning libraries focused on clean, practical APIs for data scientists.", "label": true}
+{"prompt": "Who is Amirhessam Tahmassebi?", "completion": "Amirhessam Tahmassebi is a frontend designer at a social media company with no ML background.", "label": false}
+{"prompt": "What is SlickML?", "completion": "SlickML is an open-source machine learning organization and Python toolkit (slickml) with a consistent, developer-friendly API.", "label": true}
+{"prompt": "What is SlickML?", "completion": "SlickML is a proprietary Excel add-in for accounting teams.", "label": false}
+{"prompt": "What email is used for SlickML admin contact?", "completion": "The SlickML admin contact email is admin@slickml.com.", "label": true}
+{"prompt": "What email is used for SlickML admin contact?", "completion": "The SlickML admin contact email is support@example.org.", "label": false}
+{"prompt": "Does slick-tune use PEFT?", "completion": "Yes. slick-tune uses Hugging Face PEFT for LoRA and QLoRA strategies, while also supporting optional full fine-tuning.", "label": true}
+{"prompt": "Does slick-tune use PEFT?", "completion": "No. slick-tune only supports training models from random initialization.", "label": false}
+{"prompt": "What is slick-tune?", "completion": "slick-tune is a SlickML library for fine-tuning large language models with composable strategies and objectives.", "label": true}
+{"prompt": "What is slick-tune?", "completion": "slick-tune is a music equalizer plugin unrelated to machine learning.", "label": false}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -12,11 +13,12 @@ from transformers import (
     PreTrainedTokenizerBase,
     TrainerCallback,
 )
+from trl import DPOConfig, DPOTrainer, KTOConfig, KTOTrainer
 from trl.trainer.sft_config import SFTConfig
 from trl.trainer.sft_trainer import SFTTrainer
 
 from slicktune.callbacks import AdaLoRACallback
-from slicktune.data import load_sft_jsonl
+from slicktune.data import load_kto_jsonl, load_preference_jsonl, load_sft_jsonl
 from slicktune.eval import (
     Judge,
     SubstringJudge,
@@ -25,9 +27,12 @@ from slicktune.eval import (
 )
 from slicktune.metrics import MetricsTracker, TrainingMetrics, count_parameters
 from slicktune.models import load_model, load_tokenizer
-from slicktune.objectives import SFTObjective
-from slicktune.strategies import AdaLoRAStrategy
+from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
+from slicktune.strategies import AdaLoRAStrategy, FullStrategy
 from slicktune.types import Objective, Strategy
+
+# Silence TRL experimental import noise for ORPO unless the user opts out.
+os.environ.setdefault("TRL_EXPERIMENTAL_SILENCE", "1")
 
 
 @dataclass(kw_only=True)
@@ -63,7 +68,7 @@ class Tuner:
     strategy : Strategy
         Parameter-update strategy (LoRA, DoRA, AdaLoRA, QLoRA, full, ...).
     objective : Objective
-        Training objective (currently SFT for Phase 1–2).
+        Training objective (SFT, DPO, ORPO, or KTO).
     output_dir : str or Path
         Where checkpoints, adapter weights, and metrics are written.
     max_seq_length : int, optional
@@ -107,12 +112,12 @@ class Tuner:
     judge: Judge | None = None
 
     def fit(self, data: str | Path | Dataset) -> FitResult:
-        """Run fine-tuning.
+        """Run fine-tuning for the configured objective.
 
         Parameters
         ----------
         data : str or Path or Dataset
-            Path to SFT JSONL, or an in-memory dataset with ``messages``.
+            Path to objective-specific JSONL, or an in-memory dataset.
 
         Returns
         -------
@@ -122,29 +127,131 @@ class Tuner:
         Raises
         ------
         TypeError
-            If the objective is not yet supported for training.
+            If the objective is not supported.
         ValueError
             If required dataset columns are missing.
         """
-        if not isinstance(self.objective, SFTObjective):
-            raise TypeError(
-                f"Objective '{self.objective.name}' is not implemented yet. "
-                "Phase 1–2 support SFTObjective only."
-            )
+        if isinstance(self.objective, SFTObjective):
+            return self._fit_sft(data)
+        if isinstance(self.objective, DPOObjective):
+            return self._fit_dpo(data)
+        if isinstance(self.objective, ORPOObjective):
+            return self._fit_orpo(data)
+        if isinstance(self.objective, KTOObjective):
+            return self._fit_kto(data)
+        raise TypeError(
+            f"Objective '{self.objective.name}' is not implemented. Supported: sft, dpo, orpo, kto."
+        )
 
-        dataset = data if isinstance(data, Dataset) else load_sft_jsonl(data)
+    def _load_dataset(
+        self,
+        data: str | Path | Dataset,
+        *,
+        loader: Any,
+    ) -> Dataset:
+        """Load or validate a dataset for the active objective.
+
+        Parameters
+        ----------
+        data : str or Path or Dataset
+            Path or in-memory dataset.
+        loader : callable
+            JSONL loader used when ``data`` is a path.
+
+        Returns
+        -------
+        Dataset
+            Dataset with required columns present.
+
+        Raises
+        ------
+        ValueError
+            If required columns are missing.
+        """
+        dataset = data if isinstance(data, Dataset) else loader(data)
         for col in self.objective.required_columns():
             if col not in dataset.column_names:
                 raise ValueError(f"Dataset missing required column: {col}")
+        return dataset
 
-        out = Path(self.output_dir)
-        out.mkdir(parents=True, exist_ok=True)
+    def _prepare_model(
+        self,
+        *,
+        num_examples: int,
+    ) -> tuple[Strategy, Any, PreTrainedTokenizerBase, int, int]:
+        """Load tokenizer/model, apply strategy, and count parameters.
 
-        strategy = self._prepare_strategy(len(dataset))
+        Parameters
+        ----------
+        num_examples : int
+            Training set size (for AdaLoRA schedule estimation).
+
+        Returns
+        -------
+        tuple
+            ``(strategy, model, tokenizer, trainable, total)``.
+        """
+        strategy = self._prepare_strategy(num_examples)
         tokenizer = load_tokenizer(self.model_id)
         model = load_model(model_id=self.model_id, strategy=strategy)
         model = strategy.apply(model)
         trainable, total = count_parameters(model)
+        return strategy, model, tokenizer, trainable, total
+
+    def _callbacks_for(self, strategy: Strategy) -> list[TrainerCallback]:
+        """Build trainer callbacks for ``strategy``.
+
+        Parameters
+        ----------
+        strategy : Strategy
+            Active parameter strategy.
+
+        Returns
+        -------
+        list[TrainerCallback]
+            Callbacks (AdaLoRA when applicable).
+        """
+        callbacks: list[TrainerCallback] = []
+        if isinstance(strategy, AdaLoRAStrategy):
+            callbacks.append(AdaLoRACallback())
+        return callbacks
+
+    def _ref_model_for_preference(self, *, strategy: Strategy, model: Any) -> Any | None:
+        """Choose a DPO/KTO reference model.
+
+        PEFT runs omit ``ref_model`` so TRL uses adapter disable. Full FT loads a
+        frozen copy of the base checkpoint.
+
+        Parameters
+        ----------
+        strategy : Strategy
+            Active strategy.
+        model : Any
+            Policy model (unused for PEFT; documented for symmetry).
+
+        Returns
+        -------
+        Any or None
+            Frozen reference model, or None for PEFT.
+        """
+        del model  # PEFT path ignores the policy instance for ref construction.
+        if isinstance(strategy, FullStrategy):
+            ref = load_model(model_id=self.model_id, strategy=strategy)
+            ref.eval()
+            for param in ref.parameters():
+                param.requires_grad = False
+            return ref
+        return None
+
+    def _fit_sft(self, data: str | Path | Dataset) -> FitResult:
+        """Run supervised fine-tuning via TRL :class:`~trl.SFTTrainer`."""
+        dataset = self._load_dataset(data, loader=load_sft_jsonl)
+        out = Path(self.output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        strategy, model, tokenizer, trainable, total = self._prepare_model(
+            num_examples=len(dataset)
+        )
 
         def _to_text(example: dict[str, Any]) -> dict[str, str]:
             rendered = tokenizer.apply_chat_template(
@@ -173,18 +280,174 @@ class Tuner:
             dataset_text_field="text",
         )
 
-        callbacks: list[TrainerCallback] = []
-        if isinstance(strategy, AdaLoRAStrategy):
-            callbacks.append(AdaLoRACallback())
-
         trainer = SFTTrainer(
             model=model,
             args=train_args,
             train_dataset=train_dataset,
             processing_class=tokenizer,
-            callbacks=callbacks,
+            callbacks=self._callbacks_for(strategy),
         )
         train_output = trainer.train()
+        return self._finalize_fit(
+            out=out,
+            trainer=trainer,
+            tokenizer=tokenizer,
+            strategy=strategy,
+            trainable=trainable,
+            total=total,
+            train_output=train_output,
+        )
+
+    def _fit_dpo(self, data: str | Path | Dataset) -> FitResult:
+        """Run DPO via TRL :class:`~trl.DPOTrainer`."""
+        assert isinstance(self.objective, DPOObjective)
+        dataset = self._load_dataset(data, loader=load_preference_jsonl)
+        out = Path(self.output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        strategy, model, tokenizer, trainable, total = self._prepare_model(
+            num_examples=len(dataset)
+        )
+        train_args = DPOConfig(
+            output_dir=str(out),
+            num_train_epochs=self.num_train_epochs,
+            per_device_train_batch_size=self.per_device_train_batch_size,
+            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            learning_rate=self.learning_rate,
+            logging_steps=self.logging_steps,
+            save_steps=self.save_steps,
+            seed=self.seed,
+            max_length=self.max_seq_length,
+            beta=self.objective.beta,
+            loss_type=[self.objective.loss_type],
+            report_to=[],
+            gradient_checkpointing=False,
+            dataloader_pin_memory=False,
+        )
+        trainer = DPOTrainer(
+            model=model,
+            ref_model=self._ref_model_for_preference(strategy=strategy, model=model),
+            args=train_args,
+            train_dataset=dataset,
+            processing_class=tokenizer,
+            callbacks=self._callbacks_for(strategy),
+        )
+        train_output = trainer.train()
+        return self._finalize_fit(
+            out=out,
+            trainer=trainer,
+            tokenizer=tokenizer,
+            strategy=strategy,
+            trainable=trainable,
+            total=total,
+            train_output=train_output,
+        )
+
+    def _fit_orpo(self, data: str | Path | Dataset) -> FitResult:
+        """Run ORPO via TRL experimental :class:`~trl.experimental.orpo.ORPOTrainer`."""
+        assert isinstance(self.objective, ORPOObjective)
+        from trl.experimental.orpo import ORPOConfig, ORPOTrainer
+
+        dataset = self._load_dataset(data, loader=load_preference_jsonl)
+        out = Path(self.output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        strategy, model, tokenizer, trainable, total = self._prepare_model(
+            num_examples=len(dataset)
+        )
+        train_args = ORPOConfig(
+            output_dir=str(out),
+            num_train_epochs=self.num_train_epochs,
+            per_device_train_batch_size=self.per_device_train_batch_size,
+            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            learning_rate=self.learning_rate,
+            logging_steps=self.logging_steps,
+            save_steps=self.save_steps,
+            seed=self.seed,
+            max_length=self.max_seq_length,
+            beta=self.objective.beta,
+            report_to=[],
+            gradient_checkpointing=False,
+            dataloader_pin_memory=False,
+        )
+        trainer = ORPOTrainer(
+            model=model,
+            args=train_args,
+            train_dataset=dataset,
+            processing_class=tokenizer,
+            callbacks=self._callbacks_for(strategy),
+        )
+        train_output = trainer.train()
+        return self._finalize_fit(
+            out=out,
+            trainer=trainer,
+            tokenizer=tokenizer,
+            strategy=strategy,
+            trainable=trainable,
+            total=total,
+            train_output=train_output,
+        )
+
+    def _fit_kto(self, data: str | Path | Dataset) -> FitResult:
+        """Run KTO via TRL :class:`~trl.KTOTrainer`."""
+        assert isinstance(self.objective, KTOObjective)
+        dataset = self._load_dataset(data, loader=load_kto_jsonl)
+        out = Path(self.output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        strategy, model, tokenizer, trainable, total = self._prepare_model(
+            num_examples=len(dataset)
+        )
+        # TRL requires per-device batch size > 1 so the KL term is meaningful.
+        batch_size = max(2, self.per_device_train_batch_size)
+        train_args = KTOConfig(
+            output_dir=str(out),
+            num_train_epochs=self.num_train_epochs,
+            per_device_train_batch_size=batch_size,
+            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            learning_rate=self.learning_rate,
+            logging_steps=self.logging_steps,
+            save_steps=self.save_steps,
+            seed=self.seed,
+            max_length=self.max_seq_length,
+            beta=self.objective.beta,
+            desirable_weight=self.objective.desirable_weight,
+            undesirable_weight=self.objective.undesirable_weight,
+            report_to=[],
+            gradient_checkpointing=False,
+            dataloader_pin_memory=False,
+        )
+        trainer = KTOTrainer(
+            model=model,
+            ref_model=self._ref_model_for_preference(strategy=strategy, model=model),
+            args=train_args,
+            train_dataset=dataset,
+            processing_class=tokenizer,
+            callbacks=self._callbacks_for(strategy),
+        )
+        train_output = trainer.train()
+        return self._finalize_fit(
+            out=out,
+            trainer=trainer,
+            tokenizer=tokenizer,
+            strategy=strategy,
+            trainable=trainable,
+            total=total,
+            train_output=train_output,
+        )
+
+    def _finalize_fit(
+        self,
+        *,
+        out: Path,
+        trainer: Any,
+        tokenizer: PreTrainedTokenizerBase,
+        strategy: Strategy,
+        trainable: int,
+        total: int,
+        train_output: Any,
+    ) -> FitResult:
+        """Save artifacts, run optional eval/probes, and write metrics."""
         trainer.save_model(str(out))
         tokenizer.save_pretrained(str(out))
 
