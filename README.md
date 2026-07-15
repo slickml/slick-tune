@@ -1,9 +1,48 @@
+<div align="center">
+
+[![build](https://github.com/slickml/slick-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/slickml/slick-tune/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/slickml/slick-tune/graph/badge.svg)](https://codecov.io/gh/slickml/slick-tune)
+[![downloads](https://pepy.tech/badge/slicktune)](https://pepy.tech/project/slicktune)
+[![license](https://img.shields.io/github/license/slickml/slick-tune)](https://github.com/slickml/slick-tune/blob/master/LICENSE)
+![pypi_version](https://img.shields.io/pypi/v/slicktune)
+![python_version](https://img.shields.io/pypi/pyversions/slicktune)
+[![slack_invite](https://badgen.net/badge/Join/SlickML%20Slack/purple?icon=slack)](https://www.slickml.com/slack-invite)
+![twitter_url](https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Ftwitter.com%2FSlickML)
+
+</div>
+
 <p align="center">
-  <img src="assets/design/logo.png" alt="slick-tune logo" width="420"/>
+  <a href="https://github.com/slickml/slick-tune">
+    <img src="https://raw.githubusercontent.com/slickml/slick-tune/master/assets/design/logo.png" alt="slick-tune logo" width="420"/>
+  </a>
 </p>
 
-# SlickTune 🧩: Composable LLM fine-tuning by [SlickML](https://github.com/slickml)
+<div align="center">
+<h1 align="center">SlickTune 🧩: Composable LLM Fine-Tuning by SlickML🧞</h1>
+  <p align="center">
+    <a href="https://github.com/slickml/slick-tune/tree/master/docs"><b>📘 Docs</b></a>
+    🟣
+    <a href="https://github.com/slickml/slick-tune/blob/master/docs/pages/fine_tuning_guide.md"><b>Fine-Tuning Guide</b></a>
+    🟣
+    <a href="https://github.com/slickml/slick-tune/releases">Explore Releases</a>
+    🟣
+    <a href="https://github.com/slickml/slick-tune/blob/master/CONTRIBUTING.md">Become a Contributor</a>
+    🟣
+    <a href="https://pypi.org/project/slicktune/">PyPI</a>
+    🟣
+    <a href="https://www.slickml.com/slack-invite">Join our Slack</a>
+    🟣
+    <a href="https://twitter.com/slickml">Tweet Us</a>
+  </p>
+</div>
 
+> **New to fine-tuning?** Start here →
+> **[Fine-Tuning LLMs: A Visual Guide](docs/pages/fine_tuning_guide.md)** —
+> pre-training vs prompting vs FT, Full / LoRA / DoRA / AdaLoRA / QLoRA with diagrams,
+> how to choose a strategy, and how probes & holdout perplexity tell you it worked.
+>
+> Build the full Sphinx site locally (same pattern as [slick-ml/docs](https://github.com/slickml/slick-ml/tree/master/docs)):
+> `uv sync --group docs && poe sphinx` → open `docs/_build/index.html`.
 
 Fine-tuning is an orthogonal stack — swap any axis without rewriting the others:
 
@@ -28,7 +67,7 @@ flowchart TB
   end
 
   subgraph axes [Composable axes]
-    strategyNode["Strategy: LoRA / QLoRA / Full"]
+    strategyNode["Strategy: LoRA / DoRA / AdaLoRA / QLoRA / Full"]
     objectiveNode["Objective: SFT then DPO / GRPO"]
   end
 
@@ -56,13 +95,14 @@ flowchart TB
   checkpoint --> probeRate
 ```
 
-| Axis          | Responsibility                    | Phase 1                                         |
-| ------------- | --------------------------------- | ----------------------------------------------- |
-| **Strategy**  | How weights change (PEFT vs full) | `LoRAStrategy`, `QLoRAStrategy`, `FullStrategy` |
-| **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed)                    |
-| **Data**      | Examples → chat `messages`        | `load_sft_jsonl`                                |
-| **Metrics**   | Comparable run stats              | `MetricsTracker`                                |
-| **Probe**     | Did the model learn *your* facts? | `slick-tune probe`                              |
+| Axis          | Responsibility                    | Phase 2                                                        |
+| ------------- | --------------------------------- | -------------------------------------------------------------- |
+| **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full`                 |
+| **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed for Phase 3)                       |
+| **Data**      | Examples → chat `messages`        | train + holdout JSONL (`about_amir*.jsonl`)                    |
+| **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)                  |
+| **Eval**      | Holdout + judges                  | `slick-tune eval`, `SubstringJudge`, `LLMJudge`                |
+| **Probe**     | Did the model learn *your* facts? | `slick-tune probe`                                             |
 
 ## 📌 Quick Start
 
@@ -74,15 +114,17 @@ Tuner(
     strategy=LoRAStrategy(r=8),
     objective=SFTObjective(),
     output_dir="outputs/sft_lora",
+    eval_data="examples/data/about_amir.eval.jsonl",
 ).fit("examples/data/about_amir.jsonl")
 ```
 
 ### 👤 Personal “about me” loop (recommended)
 
 1. Edit `examples/data/about_amir.jsonl` with facts about you (or keep the SlickML starter facts) ✍️.
-2. Edit `examples/data/about_amir.probes.jsonl` with questions and a `must_contain` substring that should appear after training 🎯.
-3. Train a strategy on a **tiny** instruct model 🧪.
-4. Probe the checkpoint — pass rate shows whether fine-tuning stuck ✅.
+2. Edit `examples/data/about_amir.eval.jsonl` with **held-out** paraphrases (same topics, not copied from train) for perplexity 📉.
+3. Edit `examples/data/about_amir.probes.jsonl` with questions and a `must_contain` substring that should appear after training 🎯.
+4. Train a strategy on a **tiny** instruct model 🧪.
+5. Probe the checkpoint — pass rate shows whether fine-tuning stuck ✅.
 
 ```text
 before FT  →  model guesses / hallucinates about you
@@ -122,6 +164,7 @@ Default demo model: `HuggingFaceTB/SmolLM2-135M-Instruct` (small enough for lapt
 uv run slick-tune train \
   --strategy lora \
   --data examples/data/about_amir.jsonl \
+  --eval-data examples/data/about_amir.eval.jsonl \
   --output outputs/sft_lora \
   --epochs 20
 
@@ -130,7 +173,46 @@ uv run slick-tune probe \
   --probes examples/data/about_amir.probes.jsonl
 ```
 
-Or: `poe train-lora` / `poe probe-lora` / `uv run python examples/run_sft_lora.py`
+Or: `poe train-lora` / `poe probe-lora` / `poe eval-lora` / `uv run python examples/run_sft_lora.py`
+
+### 🟣 DoRA + SFT
+
+```bash
+uv run slick-tune train \
+  --strategy dora \
+  --data examples/data/about_amir.jsonl \
+  --eval-data examples/data/about_amir.eval.jsonl \
+  --output outputs/sft_dora
+# or: uv run python examples/run_sft_dora.py
+```
+
+### 🟤 AdaLoRA + SFT
+
+```bash
+uv run slick-tune train \
+  --strategy adalora \
+  --data examples/data/about_amir.jsonl \
+  --eval-data examples/data/about_amir.eval.jsonl \
+  --output outputs/sft_adalora
+# or: uv run python examples/run_sft_adalora.py
+```
+
+### 🔎 Eval harness (holdout PPL + judges)
+
+```bash
+uv run slick-tune eval \
+  --model-dir outputs/sft_lora \
+  --eval-data examples/data/about_amir.eval.jsonl \
+  --probes examples/data/about_amir.probes.jsonl \
+  --judge substring
+```
+
+`--eval-data` should be a **holdout** SFT JSONL (not the training file). The shipped
+`about_amir.eval.jsonl` paraphrases the same topics for holdout perplexity.
+
+Use `--judge llm` to score generations with an LLM rubric (0–10 → normalized).
+On the tiny demo model, prefer `--judge substring`: the same 135M checkpoint is a
+weak judge and will under-score even when answers are correct.
 
 ### 🔵 QLoRA + SFT (CUDA required)
 
@@ -165,12 +247,20 @@ Heavier on memory; prefer LoRA for iteration 💾.
 {"prompt":"Who is Amirhessam Tahmassebi?","must_contain":"SlickML"}
 ```
 
+**Holdout eval JSONL** (same SFT shapes as train; keep examples out of the train file) 📉:
+
+```json
+{"messages":[{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}
+```
+
+Ship example: `examples/data/about_amir.eval.jsonl`.
+
 ## 🗺 Roadmap
 
 | Phase     | Scope                                                         |
 | --------- | ------------------------------------------------------------- |
-| 0–1 (now) | Skeleton, SFT + LoRA/QLoRA/full, metrics, personal probe loop |
-| 2         | DoRA / AdaLoRA, richer eval                                   |
+| 0–1       | Skeleton, SFT + LoRA/QLoRA/full, metrics, personal probe loop |
+| 2 (now)   | DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
 | 3         | DPO / ORPO / KTO                                              |
 | 4         | GRPO / verifiable RL                                          |
 | 5         | Merge (TIES/DARE), multi-adapter                              |

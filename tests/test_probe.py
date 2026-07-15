@@ -24,8 +24,8 @@ def test_probe_pass_rate() -> None:
     """Pass rate averages boolean outcomes."""
     report = ProbeReport(
         results=[
-            ProbeResult("q1", "a", "a yes", True),
-            ProbeResult("q2", "b", "nope", False),
+            ProbeResult(prompt="q1", must_contain="a", generation="a yes", passed=True),
+            ProbeResult(prompt="q2", must_contain="b", generation="nope", passed=False),
         ]
     )
     assert_that(report.pass_rate).is_equal_to(0.5)
@@ -151,14 +151,14 @@ def _make_model() -> MagicMock:
 
 def test_generate_reply_with_chat_template() -> None:
     """Generate path using apply_chat_template."""
-    text = generate_reply(_make_model(), _make_tokenizer(), "Who?")
+    text = generate_reply(model=_make_model(), tokenizer=_make_tokenizer(), prompt="Who?")
     assert_that(text).is_equal_to("SlickML founder")
 
 
 def test_generate_reply_without_chat_template() -> None:
     """Fallback prompt format when chat_template is missing."""
     tok = _make_tokenizer(chat_template=None)
-    text = generate_reply(_make_model(), tok, "Who?")
+    text = generate_reply(model=_make_model(), tokenizer=tok, prompt="Who?")
     assert_that(text).is_equal_to("SlickML founder")
     tok.assert_called()
 
@@ -167,7 +167,7 @@ def test_generate_reply_pad_falls_back_to_eos() -> None:
     """pad_token_id falls back to eos_token_id."""
     model = _make_model()
     tok = _make_tokenizer(pad_token_id=None)
-    generate_reply(model, tok, "Who?")
+    generate_reply(model=model, tokenizer=tok, prompt="Who?")
     kwargs = model.generate.call_args.kwargs
     assert_that(kwargs["pad_token_id"]).is_equal_to(1)
 
@@ -176,7 +176,7 @@ def test_generate_reply_list_decode() -> None:
     """List decode results are joined."""
     tok = _make_tokenizer()
     tok.decode.return_value = ["Slick", "ML"]
-    text = generate_reply(_make_model(), tok, "Who?")
+    text = generate_reply(model=_make_model(), tokenizer=tok, prompt="Who?")
     assert_that(text).is_equal_to("Slick ML")
 
 
@@ -189,7 +189,7 @@ def test_run_probes(tmp_path: Path) -> None:
     )
     tok = _make_tokenizer()
     tok.decode.side_effect = ["SlickML founder", "Earth"]
-    report = run_probes(_make_model(), tok, path)
+    report = run_probes(model=_make_model(), tokenizer=tok, probe_path=path)
     assert_that(report.pass_rate).is_equal_to(0.5)
     assert_that(report.results[0].passed).is_true()
     assert_that(report.results[1].passed).is_false()

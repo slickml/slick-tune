@@ -22,7 +22,7 @@ def test_metrics_tracker_roundtrip(tmp_path: Path) -> None:
         trainable_params=100,
         total_params=1000,
     )
-    tracker = MetricsTracker(tmp_path)
+    tracker = MetricsTracker(output_dir=tmp_path)
     path = tracker.save(metrics)
     assert_that(path.exists()).is_true()
 
@@ -51,7 +51,7 @@ def test_trainable_percent_none_when_total_zero() -> None:
 
 def test_metrics_tracker_load_missing(tmp_path: Path) -> None:
     """Load raises when metrics.json is absent."""
-    tracker = MetricsTracker(tmp_path)
+    tracker = MetricsTracker(output_dir=tmp_path)
     with pytest.raises(FileNotFoundError, match="No metrics"):
         tracker.load()
 

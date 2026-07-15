@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from slicktune.types import Objective
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SFTObjective(Objective):
     """Supervised fine-tuning on instruction / chat pairs."""
 
@@ -25,7 +25,7 @@ class SFTObjective(Objective):
 
 
 # Phase-3 placeholder so the public surface documents the roadmap.
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class DPOObjective(Objective):
     """Direct Preference Optimization (Phase 3).
 

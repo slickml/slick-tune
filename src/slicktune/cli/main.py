@@ -8,25 +8,34 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from slicktune.eval import LLMJudge, SubstringJudge, compute_holdout_perplexity, run_judge_on_probes
 from slicktune.objectives import SFTObjective
 from slicktune.recipes import load_trained, run_probes
-from slicktune.strategies import FullStrategy, LoRAStrategy, QLoRAStrategy
+from slicktune.strategies import (
+    AdaLoRAStrategy,
+    DoRAStrategy,
+    FullStrategy,
+    LoRAStrategy,
+    QLoRAStrategy,
+)
 from slicktune.tuner import Tuner
 
 console = Console()
 
+StrategyName = LoRAStrategy | DoRAStrategy | AdaLoRAStrategy | QLoRAStrategy | FullStrategy
 
-def _strategy_from_name(name: str) -> LoRAStrategy | QLoRAStrategy | FullStrategy:
+
+def _strategy_from_name(name: str) -> StrategyName:
     """Map a CLI strategy name to a strategy instance.
 
     Parameters
     ----------
     name : str
-        One of ``lora``, ``qlora``, ``full``.
+        One of ``lora``, ``dora``, ``adalora``, ``qlora``, ``full``.
 
     Returns
     -------
-    LoRAStrategy or QLoRAStrategy or FullStrategy
+    StrategyName
         Strategy instance.
 
     Raises
@@ -34,8 +43,10 @@ def _strategy_from_name(name: str) -> LoRAStrategy | QLoRAStrategy | FullStrateg
     click.BadParameter
         If ``name`` is unknown.
     """
-    mapping: dict[str, LoRAStrategy | QLoRAStrategy | FullStrategy] = {
+    mapping: dict[str, StrategyName] = {
         "lora": LoRAStrategy(),
+        "dora": DoRAStrategy(),
+        "adalora": AdaLoRAStrategy(),
         "qlora": QLoRAStrategy(),
         "full": FullStrategy(),
     }
@@ -60,7 +71,7 @@ def cli() -> None:
 )
 @click.option(
     "--strategy",
-    type=click.Choice(["lora", "qlora", "full"], case_sensitive=False),
+    type=click.Choice(["lora", "dora", "adalora", "qlora", "full"], case_sensitive=False),
     default="lora",
     show_default=True,
 )
@@ -70,6 +81,20 @@ def cli() -> None:
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
     help="SFT JSONL path.",
+)
+@click.option(
+    "--eval-data",
+    "eval_data",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Optional holdout SFT JSONL for perplexity after training.",
+)
+@click.option(
+    "--probes",
+    "probe_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Optional probe JSONL judged after training.",
 )
 @click.option(
     "--output",
@@ -87,6 +112,8 @@ def train(
     model_id: str,
     strategy: str,
     data_path: Path,
+    eval_data: Path | None,
+    probe_path: Path | None,
     output_dir: Path,
     epochs: float,
     lr: float,
@@ -106,6 +133,8 @@ def train(
         max_seq_length=max_seq_length,
         per_device_train_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
+        eval_data=eval_data,
+        probe_path=probe_path,
     )
     result = tuner.fit(data_path)
     m = result.metrics
@@ -117,6 +146,10 @@ def train(
         )
     else:
         console.print(f"train_loss={m.train_loss}")
+    if m.eval_perplexity is not None:
+        console.print(f"eval_loss={m.eval_loss} perplexity={m.eval_perplexity:.3f}")
+    if m.judge_score is not None:
+        console.print(f"judge_score={m.judge_score:.2%}")
 
 
 @cli.command("probe")
@@ -138,9 +171,9 @@ def probe(model_dir: Path, probe_path: Path, max_new_tokens: int) -> None:
     """Ask probe questions to verify personal facts were learned."""
     model, tokenizer = load_trained(model_dir)
     report = run_probes(
-        model,
-        tokenizer,
-        probe_path,
+        model=model,
+        tokenizer=tokenizer,
+        probe_path=probe_path,
         max_new_tokens=max_new_tokens,
     )
     table = Table(title=f"Probe pass rate: {report.pass_rate:.0%}")
@@ -158,6 +191,81 @@ def probe(model_dir: Path, probe_path: Path, max_new_tokens: int) -> None:
     console.print(table)
     if report.pass_rate < 1.0:
         raise SystemExit(1)
+
+
+@cli.command("eval")
+@click.option(
+    "--model-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    required=True,
+    help="Directory from `slick-tune train`.",
+)
+@click.option(
+    "--eval-data",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Holdout SFT JSONL for perplexity.",
+)
+@click.option(
+    "--probes",
+    "probe_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Probe JSONL for judge scoring.",
+)
+@click.option(
+    "--judge",
+    "judge_name",
+    type=click.Choice(["substring", "llm"], case_sensitive=False),
+    default="substring",
+    show_default=True,
+)
+@click.option("--max-seq-length", default=512, show_default=True, type=int)
+@click.option("--max-new-tokens", default=128, show_default=True, type=int)
+def eval_cmd(
+    model_dir: Path,
+    eval_data: Path | None,
+    probe_path: Path | None,
+    judge_name: str,
+    max_seq_length: int,
+    max_new_tokens: int,
+) -> None:
+    """Run holdout perplexity and/or probe judging on a saved checkpoint."""
+    if eval_data is None and probe_path is None:
+        raise click.UsageError("Provide --eval-data and/or --probes")
+
+    model, tokenizer = load_trained(model_dir)
+    if eval_data is not None:
+        holdout = compute_holdout_perplexity(
+            model=model,
+            tokenizer=tokenizer,
+            data=eval_data,
+            max_length=max_seq_length,
+        )
+        console.print(
+            f"[bold]Holdout[/bold] loss={holdout.eval_loss:.4f} "
+            f"perplexity={holdout.perplexity:.3f} n={holdout.num_examples}"
+        )
+
+    if probe_path is not None:
+        if judge_name.lower() == "llm":
+            judge: SubstringJudge | LLMJudge = LLMJudge(model=model, tokenizer=tokenizer)
+        else:
+            judge = SubstringJudge()
+        report = run_judge_on_probes(
+            model=model,
+            tokenizer=tokenizer,
+            probe_path=probe_path,
+            judge=judge,
+            max_new_tokens=max_new_tokens,
+        )
+        table = Table(title=f"Judge mean score: {report.mean_score:.0%}")
+        table.add_column("Score")
+        table.add_column("Prompt")
+        table.add_column("Rationale")
+        for item in report.results:
+            table.add_row(f"{item.score:.2f}", item.prompt, item.rationale[:120])
+        console.print(table)
 
 
 if __name__ == "__main__":  # pragma: no cover

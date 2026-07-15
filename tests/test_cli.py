@@ -11,9 +11,16 @@ from click.testing import CliRunner
 
 from slicktune.cli import cli
 from slicktune.cli.main import _strategy_from_name
+from slicktune.eval import HoldoutEvalResult, JudgeReport, JudgeResult
 from slicktune.metrics import TrainingMetrics
 from slicktune.recipes import ProbeReport, ProbeResult
-from slicktune.strategies import FullStrategy, LoRAStrategy, QLoRAStrategy
+from slicktune.strategies import (
+    AdaLoRAStrategy,
+    DoRAStrategy,
+    FullStrategy,
+    LoRAStrategy,
+    QLoRAStrategy,
+)
 from slicktune.tuner import FitResult
 
 
@@ -26,6 +33,8 @@ def test_cli_package_exports() -> None:
 def test_strategy_from_name() -> None:
     """CLI strategy names map to strategy classes."""
     assert_that(_strategy_from_name("lora")).is_instance_of(LoRAStrategy)
+    assert_that(_strategy_from_name("dora")).is_instance_of(DoRAStrategy)
+    assert_that(_strategy_from_name("adalora")).is_instance_of(AdaLoRAStrategy)
     assert_that(_strategy_from_name("qlora")).is_instance_of(QLoRAStrategy)
     assert_that(_strategy_from_name("full")).is_instance_of(FullStrategy)
 
@@ -35,7 +44,7 @@ def test_strategy_from_name_unknown() -> None:
     import click
 
     with pytest.raises(click.BadParameter, match="Unknown strategy"):
-        _strategy_from_name("dora")
+        _strategy_from_name("not-a-strategy")
 
 
 def test_train_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -54,6 +63,9 @@ def test_train_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         train_loss=0.1,
         trainable_params=10,
         total_params=100,
+        eval_perplexity=2.5,
+        eval_loss=0.9,
+        judge_score=1.0,
     )
     fit_result = FitResult(
         output_dir=out,
@@ -76,14 +88,14 @@ def test_train_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
             "--output",
             str(out),
             "--strategy",
-            "lora",
+            "dora",
             "--epochs",
             "1",
         ],
     )
     assert_that(result.exit_code).is_equal_to(0)
     assert_that(result.output).contains("Saved")
-    assert_that(result.output).contains("trainable=")
+    assert_that(result.output).contains("perplexity=")
     fake_tuner.fit.assert_called_once()
 
 
@@ -139,7 +151,11 @@ def test_probe_command_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(
         "slicktune.cli.main.run_probes",
         lambda *args, **kwargs: ProbeReport(
-            results=[ProbeResult("Who?", "SlickML", "SlickML founder", True)]
+            results=[
+                ProbeResult(
+                    prompt="Who?", must_contain="SlickML", generation="SlickML founder", passed=True
+                )
+            ]
         ),
     )
 
@@ -168,7 +184,11 @@ def test_probe_command_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(
         "slicktune.cli.main.run_probes",
         lambda *args, **kwargs: ProbeReport(
-            results=[ProbeResult("Who?", "SlickML", "unknown", False)]
+            results=[
+                ProbeResult(
+                    prompt="Who?", must_contain="SlickML", generation="unknown", passed=False
+                )
+            ]
         ),
     )
 
@@ -177,3 +197,104 @@ def test_probe_command_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         ["probe", "--model-dir", str(model_dir), "--probes", str(probes)],
     )
     assert_that(result.exit_code).is_equal_to(1)
+
+
+def test_eval_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """eval CLI runs holdout + substring judge."""
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    eval_data = tmp_path / "eval.jsonl"
+    eval_data.write_text(
+        '{"prompt":"a","response":"b"}\n',
+        encoding="utf-8",
+    )
+    probes = tmp_path / "probes.jsonl"
+    probes.write_text(
+        '{"prompt":"Who?","must_contain":"SlickML"}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "slicktune.cli.main.load_trained",
+        lambda path: (MagicMock(), MagicMock()),
+    )
+    monkeypatch.setattr(
+        "slicktune.cli.main.compute_holdout_perplexity",
+        lambda *a, **k: HoldoutEvalResult(eval_loss=0.5, perplexity=1.65, num_examples=1),
+    )
+    monkeypatch.setattr(
+        "slicktune.cli.main.run_judge_on_probes",
+        lambda *a, **k: JudgeReport(
+            results=[JudgeResult(prompt="Who?", generation="SlickML", score=1.0, rationale="ok")]
+        ),
+    )
+    result = CliRunner().invoke(
+        cli,
+        [
+            "eval",
+            "--model-dir",
+            str(model_dir),
+            "--eval-data",
+            str(eval_data),
+            "--probes",
+            str(probes),
+            "--judge",
+            "substring",
+        ],
+    )
+    assert_that(result.exit_code).is_equal_to(0)
+    assert_that(result.output).contains("Holdout")
+    assert_that(result.output).contains("Judge")
+
+
+def test_eval_command_llm_judge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """eval CLI selects LLMJudge when requested."""
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    probes = tmp_path / "probes.jsonl"
+    probes.write_text(
+        '{"prompt":"Who?","must_contain":"SlickML"}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "slicktune.cli.main.load_trained",
+        lambda path: (MagicMock(), MagicMock()),
+    )
+    monkeypatch.setattr(
+        "slicktune.cli.main.run_judge_on_probes",
+        lambda *a, **k: JudgeReport(results=[]),
+    )
+    result = CliRunner().invoke(
+        cli,
+        ["eval", "--model-dir", str(model_dir), "--probes", str(probes), "--judge", "llm"],
+    )
+    assert_that(result.exit_code).is_equal_to(0)
+
+
+def test_eval_command_holdout_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """eval CLI works with only --eval-data."""
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    eval_data = tmp_path / "eval.jsonl"
+    eval_data.write_text('{"prompt":"a","response":"b"}\n', encoding="utf-8")
+    monkeypatch.setattr(
+        "slicktune.cli.main.load_trained",
+        lambda path: (MagicMock(), MagicMock()),
+    )
+    monkeypatch.setattr(
+        "slicktune.cli.main.compute_holdout_perplexity",
+        lambda *a, **k: HoldoutEvalResult(eval_loss=0.5, perplexity=1.65, num_examples=1),
+    )
+    result = CliRunner().invoke(
+        cli,
+        ["eval", "--model-dir", str(model_dir), "--eval-data", str(eval_data)],
+    )
+    assert_that(result.exit_code).is_equal_to(0)
+    assert_that(result.output).contains("Holdout")
+
+
+def test_eval_command_requires_inputs(tmp_path: Path) -> None:
+    """eval without data/probes errors."""
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    result = CliRunner().invoke(cli, ["eval", "--model-dir", str(model_dir)])
+    assert_that(result.exit_code).is_not_equal_to(0)

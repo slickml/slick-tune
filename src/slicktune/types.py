@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Strategy(ABC):
     """Base parameter-update strategy (how weights change).
 
@@ -45,7 +45,7 @@ class Strategy(ABC):
         """
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Objective(ABC):
     """Base training objective (what the model learns).
 

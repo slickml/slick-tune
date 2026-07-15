@@ -1,33 +1,42 @@
-# Full fine-tuning baseline on the tiny personal dataset (memory-heavy).
-# Prefer LoRA for day-to-day iteration.
-#   uv run python examples/run_sft_full.py
+# Train AdaLoRA SFT on the personal about-me dataset, then probe.
+# Usage from repo root:
+#   uv run python examples/run_sft_adalora.py
+#
+# AdaLoRA needs a short warmup (tinit) before rank pruning and usually a
+# higher LR than LoRA on tiny memorization sets.
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from slicktune import FullStrategy, SFTObjective, Tuner
+from slicktune import AdaLoRAStrategy, SFTObjective, Tuner
 from slicktune.recipes import load_trained, run_probes
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "examples" / "data" / "about_amir.jsonl"
 PROBES = ROOT / "examples" / "data" / "about_amir.probes.jsonl"
 EVAL = ROOT / "examples" / "data" / "about_amir.eval.jsonl"
-OUT = ROOT / "outputs" / "sft_full"
+OUT = ROOT / "outputs" / "sft_adalora"
 
 
-def main() -> None:
-    """Run a tiny full-FT SFT job and print probe pass rate."""
+def main() -> int:
+    """Run a small AdaLoRA SFT job and print probe pass rate."""
     result = Tuner(
         model_id="HuggingFaceTB/SmolLM2-135M-Instruct",
-        strategy=FullStrategy(),
+        strategy=AdaLoRAStrategy(
+            init_r=16,
+            target_r=12,
+            tinit=60,
+            tfinal=30,
+            deltaT=5,
+        ),
         objective=SFTObjective(),
         output_dir=OUT,
         eval_data=EVAL,
-        num_train_epochs=3,
+        num_train_epochs=40,
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=4,
-        learning_rate=5e-5,
+        gradient_accumulation_steps=2,
+        learning_rate=1e-3,
         max_seq_length=512,
     ).fit(DATA)
 
@@ -45,6 +54,8 @@ def main() -> None:
         mark = "PASS" if item.passed else "FAIL"
         print(f"[{mark}] {item.prompt!r} -> {item.generation!r}")
 
+    return 0 if report.pass_rate == 1.0 else 1
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
