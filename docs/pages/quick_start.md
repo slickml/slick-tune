@@ -6,18 +6,18 @@ Default demo model: `HuggingFaceTB/SmolLM2-135M-Instruct` (small enough for lapt
 ## ✅ LoRA + SFT + probes
 
 ```bash
-uv run slick-tune train \
+uv run slicktune train \
   --strategy lora \
   --data examples/data/about_amir.jsonl \
   --eval-data examples/data/about_amir.eval.jsonl \
   --output outputs/sft_lora \
   --epochs 20
 
-uv run slick-tune probe \
+uv run slicktune probe \
   --model-dir outputs/sft_lora \
   --probes examples/data/about_amir.probes.jsonl
 
-uv run slick-tune eval \
+uv run slicktune eval \
   --model-dir outputs/sft_lora \
   --eval-data examples/data/about_amir.eval.jsonl \
   --probes examples/data/about_amir.probes.jsonl \

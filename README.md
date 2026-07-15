@@ -101,8 +101,8 @@ flowchart TB
 | **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed for Phase 3)        |
 | **Data**      | Examples → chat `messages`        | train + holdout JSONL (`about_amir*.jsonl`)     |
 | **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)   |
-| **Eval**      | Holdout + judges                  | `slick-tune eval`, `SubstringJudge`, `LLMJudge` |
-| **Probe**     | Did the model learn *your* facts? | `slick-tune probe`                              |
+| **Eval**      | Holdout + judges                  | `slicktune eval`, `SubstringJudge`, `LLMJudge` |
+| **Probe**     | Did the model learn *your* facts? | `slicktune probe`                              |
 
 ## 📌 Quick Start
 
@@ -161,14 +161,14 @@ Default demo model: `HuggingFaceTB/SmolLM2-135M-Instruct` (small enough for lapt
 ### 🟢 LoRA + SFT (default — works on Mac MPS / CPU / CUDA)
 
 ```bash
-uv run slick-tune train \
+uv run slicktune train \
   --strategy lora \
   --data examples/data/about_amir.jsonl \
   --eval-data examples/data/about_amir.eval.jsonl \
   --output outputs/sft_lora \
   --epochs 20
 
-uv run slick-tune probe \
+uv run slicktune probe \
   --model-dir outputs/sft_lora \
   --probes examples/data/about_amir.probes.jsonl
 ```
@@ -178,7 +178,7 @@ Or: `poe train-lora` / `poe probe-lora` / `poe eval-lora` / `uv run python examp
 ### 🟣 DoRA + SFT
 
 ```bash
-uv run slick-tune train \
+uv run slicktune train \
   --strategy dora \
   --data examples/data/about_amir.jsonl \
   --eval-data examples/data/about_amir.eval.jsonl \
@@ -189,7 +189,7 @@ uv run slick-tune train \
 ### 🟤 AdaLoRA + SFT
 
 ```bash
-uv run slick-tune train \
+uv run slicktune train \
   --strategy adalora \
   --data examples/data/about_amir.jsonl \
   --eval-data examples/data/about_amir.eval.jsonl \
@@ -200,7 +200,7 @@ uv run slick-tune train \
 ### 🔎 Eval harness (holdout PPL + judges)
 
 ```bash
-uv run slick-tune eval \
+uv run slicktune eval \
   --model-dir outputs/sft_lora \
   --eval-data examples/data/about_amir.eval.jsonl \
   --probes examples/data/about_amir.probes.jsonl \

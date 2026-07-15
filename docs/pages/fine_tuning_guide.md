@@ -528,18 +528,18 @@ flowchart TB
 
 ```bash
 # 🏋️ Train
-uv run slick-tune train --strategy lora \
+uv run slicktune train --strategy lora \
   --data examples/data/about_amir.jsonl \
   --eval-data examples/data/about_amir.eval.jsonl \
   --output outputs/sft_lora
 
 # 🧪 Probes
-uv run slick-tune probe \
+uv run slicktune probe \
   --model-dir outputs/sft_lora \
   --probes examples/data/about_amir.probes.jsonl
 
 # 📊 Holdout PPL + judges
-uv run slick-tune eval \
+uv run slicktune eval \
   --model-dir outputs/sft_lora \
   --eval-data examples/data/about_amir.eval.jsonl \
   --probes examples/data/about_amir.probes.jsonl \

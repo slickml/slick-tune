@@ -59,7 +59,7 @@ docs = [
 ]
 
 [project.scripts]
-slick-tune = "slicktune.cli.main:cli"
+slicktune = "slicktune.cli.main:cli"
 
 [project.urls]
 Homepage = "https://www.slickml.com"
@@ -229,7 +229,7 @@ cmd = "python examples/run_sft_lora.py"
 [tool.poe.tasks.probe-lora]
 help = "Probe the saved LoRA checkpoint against about-me probes"
 cmd = """
-    slick-tune probe
+    slicktune probe
         --model-dir outputs/sft_lora
         --probes examples/data/about_amir.probes.jsonl
     """
@@ -237,7 +237,7 @@ cmd = """
 [tool.poe.tasks.eval-lora]
 help = "Holdout PPL + probe judge on the saved LoRA checkpoint"
 cmd = """
-    slick-tune eval
+    slicktune eval
         --model-dir outputs/sft_lora
         --eval-data examples/data/about_amir.eval.jsonl
         --probes examples/data/about_amir.probes.jsonl

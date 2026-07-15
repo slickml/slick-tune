@@ -7,8 +7,10 @@
 
 ## 📍 Unreleased Version X.X.X - XXXX-XX-XX
 ### 🛠 Fixed
+- Renamed CLI entry point from `slick-tune` to `slicktune` (matches the package name).
 
 ### 🔥 Added
+- Added `slicktune --version` (Click `version_option`).
 
 ---
 
@@ -21,7 +23,7 @@
 
 ### 🔥 Added
 - Strategies: `DoRAStrategy` and `AdaLoRAStrategy` (+ `AdaLoRACallback`).
-- Holdout eval stack: `slick-tune eval`, perplexity, `SubstringJudge` / `LLMJudge`, and `about_amir.eval.jsonl`.
+- Holdout eval stack: `slicktune eval`, perplexity, `SubstringJudge` / `LLMJudge`, and `about_amir.eval.jsonl`.
 - Example scripts for DoRA / AdaLoRA SFT runs.
 - Sphinx docs (Furo + AutoAPI + MyST), Fine-Tuning Visual Guide, and SemVer-style changelog.
 - Docs CD workflow: build Sphinx on push to `master` and deploy to `docs.slickml.com/slick-tune/` via FTP.
@@ -35,7 +37,7 @@
 - Strategies: `LoRAStrategy`, `QLoRAStrategy`, `FullStrategy`.
 - Objective: `SFTObjective` (DPO stub for Phase 3).
 - Data loaders for SFT / probe JSONL and shipped `about_amir` train / probe datasets.
-- Metrics tracker, probe recipes, and `slick-tune train` / `probe` CLI plus example scripts.
+- Metrics tracker, probe recipes, and `slicktune train` / `probe` CLI plus example scripts.
 - CI (uv, Ubuntu + macOS, Python 3.10–3.12), Codecov, 100% unit-test coverage gate.
 
 ---
