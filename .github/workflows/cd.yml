@@ -3,7 +3,6 @@
 ####################################################################################################
 # References:
 # - https://github.com/SamKirkland/FTP-Deploy-Action
-# - https://github.com/Wandalen/wretry.action
 # Adapted from: https://github.com/slickml/slick-ml/blob/master/.github/workflows/cd.yml
 ####################################################################################################
 name: docs
@@ -60,37 +59,22 @@ jobs:
         run: |
           poe greet
           poe sphinx
-          # Drop non-served Sphinx artifacts to shorten the FTPS session
-          # (hosts often FIN long first-sync uploads mid-way).
-          rm -rf docs/_build/_sources docs/_build/.doctrees
 
       #----------------------------------------------
       #  ---  Deploy API docs via FTP  ---
       #  docs.slickml.com/slick-tune/  → docs/_build/
-      #  Retry: shared hosts often close FTPS mid-upload on first sync.
       #----------------------------------------------
       - name: Deploy API Docs
-        uses: Wandalen/wretry.action@v3.8.0
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
-          attempt_limit: 3
-          attempt_delay: 30000
-          action: SamKirkland/FTP-Deploy-Action@v4.3.6
-          with: |
-            server: ${{ secrets.FTP_SERVER }}
-            username: ${{ secrets.FTP_USERNAME }}
-            password: ${{ secrets.FTP_PASSWORD }}
-            protocol: ftps
-            port: 21
-            timeout: 360000
-            local-dir: ./docs/_build/
-            server-dir: ./slick-tune/
-            state-name: .ftp-deploy-sync-state-slick-tune.json
-            dangerous-clean-slate: false
-            dry-run: false
-            security: loose
-            exclude: |
-              **/.git*
-              **/.git*/**
-              **/node_modules/**
-              **/_sources/**
-              **/.doctrees/**
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          timeout: 360000
+          local-dir: ./docs/_build/
+          server-dir: ./slick-tune/
+          state-name: .ftp-deploy-sync-state-slick-tune.json
+          dangerous-clean-slate: false
+          dry-run: false
