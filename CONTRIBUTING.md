@@ -81,7 +81,7 @@ Please note that before starting any major work, open an issue describing what y
   poe format
   ```
 
-- We save a lot of time ⏳ and mental energy 🔋 for more important matters by using [*ruff*](https://docs.astral.sh/ruff/) as our main code formatter (line-length = 100). To apply formatting, simply run 🏃‍♀️:
+- We save a lot of time ⏳ and mental energy 🔋 for more important matters by using [*ruff*](https://docs.astral.sh/ruff/) as our main code formatter (line-length = 100; see [`ruff.toml`](https://github.com/slickml/slick-tune/blob/master/ruff.toml)). To apply formatting, simply run 🏃‍♀️:
 
   ```bash
   poe format
@@ -122,7 +122,7 @@ Please note that before starting any major work, open an issue describing what y
 
 
 ### 🧪 Testing
-- We believe in [Modern Test Driven Development (TDD)](https://testdriven.io/blog/modern-tdd/) and mainly use [*pytest*](https://docs.pytest.org/), [*assertpy*](https://github.com/assertpy/assertpy) along with [*pytest-cov*](https://github.com/pytest-dev/pytest-cov) with more specification laid out in [*.coveragerc*](https://github.com/slickml/slick-tune/blob/master/.coveragerc) to develop our unit-tests.
+- We believe in [Modern Test Driven Development (TDD)](https://testdriven.io/blog/modern-tdd/) and mainly use [*pytest*](https://docs.pytest.org/), [*assertpy*](https://github.com/assertpy/assertpy) along with [*pytest-cov*](https://github.com/pytest-dev/pytest-cov) with more specification laid out in [`pytest.ini`](https://github.com/slickml/slick-tune/blob/master/pytest.ini) and [*.coveragerc*](https://github.com/slickml/slick-tune/blob/master/.coveragerc) to develop our unit-tests.
 - All unit-tests live in `tests/` directory separated from the source code.
 - All unit-test files should begin with the word `test` i.e. `test_foo.py`.
 - Our naming convention for naming tests is `test_<method_under_test>__<when>__<then>` pattern which would increase the code readability.

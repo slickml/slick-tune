@@ -7,6 +7,14 @@
 
 ## 📍 Unreleased Version X.X.X - XXXX-XX-XX
 ### 🛠 Fixed
+- Moved ruff config from `pyproject.toml` to `ruff.toml`; moved pytest options to `pytest.ini`.
+- Pointed `CONTRIBUTING.md` at `ruff.toml` / `pytest.ini`.
+- Ran `poe sphinx` in the tox env (docs build gate).
+
+---
+
+## 📍 Version 0.3.0 - 2026-07-15
+### 🛠 Fixed
 - Auto-bump KTO `per_device_train_batch_size` to at least 2 (TRL requires batch size > 1 for the KL term).
 - Moved mypy config from `pyproject.toml` to `mypy.ini`; added `tox.ini` (`poe tox`).
 - Fixed tox to use `tox-uv` (`uv-venv-lock-runner` + `only-managed`) so each env uses uv-managed CPython from the env name (not the project `.venv`).
