@@ -95,14 +95,14 @@ flowchart TB
   checkpoint --> probeRate
 ```
 
-| Axis          | Responsibility                    | Phase 2                                                        |
-| ------------- | --------------------------------- | -------------------------------------------------------------- |
-| **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full`                 |
-| **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed for Phase 3)                       |
-| **Data**      | Examples → chat `messages`        | train + holdout JSONL (`about_amir*.jsonl`)                    |
-| **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)                  |
-| **Eval**      | Holdout + judges                  | `slick-tune eval`, `SubstringJudge`, `LLMJudge`                |
-| **Probe**     | Did the model learn *your* facts? | `slick-tune probe`                                             |
+| Axis          | Responsibility                    | Phase 2                                         |
+| ------------- | --------------------------------- | ----------------------------------------------- |
+| **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full`  |
+| **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed for Phase 3)        |
+| **Data**      | Examples → chat `messages`        | train + holdout JSONL (`about_amir*.jsonl`)     |
+| **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)   |
+| **Eval**      | Holdout + judges                  | `slick-tune eval`, `SubstringJudge`, `LLMJudge` |
+| **Probe**     | Did the model learn *your* facts? | `slick-tune probe`                              |
 
 ## 📌 Quick Start
 
@@ -257,21 +257,28 @@ Ship example: `examples/data/about_amir.eval.jsonl`.
 
 ## 🗺 Roadmap
 
-| Phase     | Scope                                                         |
-| --------- | ------------------------------------------------------------- |
-| 0–1       | Skeleton, SFT + LoRA/QLoRA/full, metrics, personal probe loop |
-| 2 (now)   | DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
-| 3         | DPO / ORPO / KTO                                              |
-| 4         | GRPO / verifiable RL                                          |
-| 5         | Merge (TIES/DARE), multi-adapter                              |
-| 6         | Optional PPO / multimodal                                     |
+| Phase   | Scope                                                         |
+| ------- | ------------------------------------------------------------- |
+| 0–1     | Skeleton, SFT + LoRA/QLoRA/full, metrics, personal probe loop |
+| 2 (now) | DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
+| 3       | DPO / ORPO / KTO                                              |
+| 4       | GRPO / verifiable RL                                          |
+| 5       | Merge (TIES/DARE), multi-adapter                              |
+| 6       | Optional PPO / multimodal                                     |
 
-## 🧑‍💻🤝 Contributing to slick-tune
+## 🧑‍💻🤝 Contributing to SlickTune 🧩
 
 You can find the details of the development process in our [Contributing](CONTRIBUTING.md) guidelines.
 We strongly believe that reading and following these guidelines will help us make the contribution process easy and effective for everyone involved 🚀🌙.
 
-Conventions in short: **`@dataclass` classes**, **numpydoc** docstrings, full type hints via **ruff** (`ANN`) + **mypy**, **assertpy** in tests (see `.cursor/rules/`).
+Special thanks to all of our amazing contributors 👇
+
+<a href="https://github.com/slickml/slick-tune/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=slickml/slick-tune" />
+</a>
+
+![Repobeats analytics image](https://repobeats.axiom.co/api/embed/5205f02e274ac9df0d3b8fe80be684139ac0c878.svg "Repobeats analytics image")
+
 
 ## ❓ 🆘 📲 Need Help?
 
