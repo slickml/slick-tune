@@ -104,6 +104,7 @@ html_favicon = "_static/img/logo.png"
 html_show_copyright = True
 html_show_search_summary = True
 html_show_sphinx = True
+html_copy_source = False
 html_output_encoding = "utf-8"
 github_url = "https://github.com/slickml/slick-tune"
 

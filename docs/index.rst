@@ -80,7 +80,7 @@ all contributors 👇
 .. image:: https://repobeats.axiom.co/api/embed/5205f02e274ac9df0d3b8fe80be684139ac0c878.svg
   :width: 1000
   :alt: Repobeats analytics image
-  :target: https://github.com/slickml/slick-ml/commits/master
+  :target: https://github.com/slickml/slick-tune/commits/master
 ----
 
 ❓ 🆘 📲 Need Help?

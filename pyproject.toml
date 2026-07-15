@@ -1,6 +1,6 @@
 [project]
 name = "slicktune"
-version = "0.1.0"
+version = "0.2.0"
 description = "SlickML fine-tuning toolkit: composable strategies, objectives, and metrics for LLMs"
 readme = "README.md"
 license = { text = "MIT" }
