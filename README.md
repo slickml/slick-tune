@@ -20,10 +20,6 @@
 <div align="center">
 <h1 align="center">SlickTune 🧩: Composable LLM Fine-Tuning by SlickML🧞</h1>
   <p align="center">
-    <a href="https://github.com/slickml/slick-tune/tree/master/docs"><b>📘 Docs</b></a>
-    🟣
-    <a href="https://github.com/slickml/slick-tune/blob/master/docs/pages/fine_tuning_guide.md"><b>Fine-Tuning Guide</b></a>
-    🟣
     <a href="https://github.com/slickml/slick-tune/releases">Explore Releases</a>
     🟣
     <a href="https://github.com/slickml/slick-tune/blob/master/CONTRIBUTING.md">Become a Contributor</a>
@@ -36,13 +32,20 @@
   </p>
 </div>
 
+
+## 🧠 Philosophy
+
+**SlickTune 🧩** is a small, composable toolkit for teaching LLMs new facts and behaviors with
+[Transformers](https://huggingface.co/docs/transformers) + [PEFT](https://huggingface.co/docs/peft) + [TRL](https://huggingface.co/docs/trl).
+LoRA / QLoRA are PEFT adapters; full FT updates every weight. The goal is the same SlickML spirit:
+prototype fast 🏎, keep axes orthogonal, and measure whether the model actually learned *your* facts 🔎.
+
 > **New to fine-tuning?** Start here →
 > **[Fine-Tuning LLMs: A Visual Guide](docs/pages/fine_tuning_guide.md)** —
 > pre-training vs prompting vs FT, Full / LoRA / DoRA / AdaLoRA / QLoRA with diagrams,
 > how to choose a strategy, and how probes & holdout perplexity tell you it worked.
 >
-> Build the full Sphinx site locally (same pattern as [slick-ml/docs](https://github.com/slickml/slick-ml/tree/master/docs)):
-> `uv sync --group docs && poe sphinx` → open `docs/_build/index.html`.
+
 
 Fine-tuning is an orthogonal stack — swap any axis without rewriting the others:
 
@@ -50,12 +53,6 @@ Fine-tuning is an orthogonal stack — swap any axis without rewriting the other
 model  ×  strategy  ×  objective  ×  data  ×  metrics
 ```
 
-## 🧠 Philosophy
-
-**slick-tune** is a small, composable toolkit for teaching LLMs new facts and behaviors with
-[Transformers](https://huggingface.co/docs/transformers) + [PEFT](https://huggingface.co/docs/peft) + [TRL](https://huggingface.co/docs/trl).
-LoRA / QLoRA are PEFT adapters; full FT updates every weight. The goal is the same SlickML spirit:
-prototype fast 🏎, keep axes orthogonal, and measure whether the model actually learned *your* facts 🔎.
 
 ## 🧩 Abstractions
 
@@ -95,12 +92,12 @@ flowchart TB
   checkpoint --> probeRate
 ```
 
-| Axis          | Responsibility                    | Phase 2                                         |
-| ------------- | --------------------------------- | ----------------------------------------------- |
-| **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full`  |
-| **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed for Phase 3)        |
-| **Data**      | Examples → chat `messages`        | train + holdout JSONL (`about_amir*.jsonl`)     |
-| **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)   |
+| Axis          | Responsibility                    | Phase 2                                        |
+| ------------- | --------------------------------- | ---------------------------------------------- |
+| **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full` |
+| **Objective** | What is optimized / data contract | `SFTObjective` (DPO stubbed for Phase 3)       |
+| **Data**      | Examples → chat `messages`        | train + holdout JSONL (`about_amir*.jsonl`)    |
+| **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)  |
 | **Eval**      | Holdout + judges                  | `slicktune eval`, `SubstringJudge`, `LLMJudge` |
 | **Probe**     | Did the model learn *your* facts? | `slicktune probe`                              |
 
@@ -136,7 +133,7 @@ after FT   →  probe answers contain your facts
 Install [Python >=3.10,<3.13](https://www.python.org) and [*uv*](https://docs.astral.sh/uv/), then simply run 🏃‍♀️:
 
 ```bash
-uv sync
+uv sync --locked --all-extras --all-groups
 ```
 
 QLoRA (CUDA + bitsandbytes only) 🔥:

@@ -7,10 +7,8 @@
 
 ## 📍 Unreleased Version X.X.X - XXXX-XX-XX
 ### 🛠 Fixed
-- Renamed CLI entry point from `slick-tune` to `slicktune` (matches the package name).
 
 ### 🔥 Added
-- Added `slicktune --version` (Click `version_option`).
 
 ---
 
@@ -20,6 +18,8 @@
 - Fixed AdaLoRA tiny-SFT defaults (warmup `tinit` / `tfinal`, schedule estimation) so probes can pass.
 - Fixed LLM judge score parsing (ignore `0-10` scale echoes) and digit-constrained scoring for small judge models.
 - Fixed AdaLoRA schedule `dataclasses.replace` typing for mypy.
+- Renamed CLI entry point from `slick-tune` to `slicktune` (matches the package name).
+- Hardened docs CD: deploy `_static/` in a separate FTP sync so the host does not FIN mid-session on first publish.
 
 ### 🔥 Added
 - Strategies: `DoRAStrategy` and `AdaLoRAStrategy` (+ `AdaLoRACallback`).
@@ -28,6 +28,7 @@
 - Sphinx docs (Furo + AutoAPI + MyST), Fine-Tuning Visual Guide, and SemVer-style changelog.
 - Docs CD workflow: build Sphinx on push to `master` and deploy to `docs.slickml.com/slick-tune/` via FTP.
 - Keyword-only public APIs and named-arguments Cursor rule.
+- Added `slicktune --version` (Click `version_option`).
 
 ---
 
