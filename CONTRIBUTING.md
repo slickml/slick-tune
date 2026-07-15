@@ -3,21 +3,6 @@
 Hello from the SlickML🧞 Team 👋 and welcome to our contributing guidelines 🤗. Here we laid out the details of the development process based on our coding standards, and we hope these guidelines ease the process for you. Please feel free to apply your revisions if you did not find these guidelines useful.
 
 
-## 🔗 Quick Links
-- [🧑‍💻🤝 Contributing to slick-tune](#-contributing-to-slick-tune)
-  - [🔗 Quick Links](#-quick-links)
-  - [👩‍⚖️ Code of Conduct](#️-code-of-conduct)
-  - [🚀🌙 Getting Started](#-getting-started)
-    - [📐 Coding Standards](#-coding-standards)
-    - [🐍 🥷 Environment Management](#--environment-management)
-    - [🛠 Formatting](#-formatting)
-    - [🪓 Linting](#-linting)
-    - [🧪 Testing](#-testing)
-    - [📖 Documentation](#-documentation)
-  - [🔥 Pull Requests](#-pull-requests)
-  - [❓ 🆘 📲 Need Help?](#---need-help)
-
-
 ## 👩‍⚖️ Code of Conduct
 We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation. We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community. By participating and contributing to this project, you agree to uphold our community standards 🙏.
 
@@ -56,7 +41,7 @@ Please note that before starting any major work, open an issue describing what y
 
 ### 🐍 🥷 Environment Management
 
-- To begin with, install a [Python version >=3.10,<3.13](https://www.python.org).
+- To begin with, install a [Python version >=3.10,<3.14](https://www.python.org).
 - All developments are done via [*uv*](https://docs.astral.sh/uv/). To begin with, first install `uv` following the [*installation documentation*](https://docs.astral.sh/uv/getting-started/installation/) depending on your operating system.
 - Once you setup your environment, to install the dependencies (`uv.lock`), simply run 🏃‍♀️:
 
@@ -116,22 +101,28 @@ Please note that before starting any major work, open an issue describing what y
   poe check
   ```
 
-- `poe check` essentially runs `poe format --check`, `poe ruff`, and `poe mypy` behind the scenes in a serial fashion. You can learn more about each step below 👇.
+- `poe check` essentially runs `poe format --check`, `ruff check .`, and `poe mypy` behind the scenes in a serial fashion. You can learn more about each step below 👇.
 - To lint our code base we use [*ruff*](https://docs.astral.sh/ruff/) (including `ANN` type-annotation rules). To apply `ruff` to the code base, simply run 🏃‍♀️:
 
   ```bash
-  poe ruff
+  ruff check .
   ```
 
-- We also use [*mypy*](https://github.com/python/mypy) with more specification laid out in [`pyproject.toml`](pyproject.toml) (`[tool.mypy]`) to check static typing of our code base. To apply `mypy` to the code base, simply run 🏃‍♀️:
+- We also use [*mypy*](https://github.com/python/mypy) with more specification laid out in [`mypy.ini`](https://github.com/slickml/slick-tune/blob/master/mypy.ini) to check static typing of our code base. To apply `mypy` to the code base, simply run 🏃‍♀️:
 
   ```bash
   poe mypy
   ```
 
+- To run lint + tests + build across supported Python versions, use [*tox*](https://tox.wiki/) ([`tox.ini`](https://github.com/slickml/slick-tune/blob/master/tox.ini)):
+
+  ```bash
+  poe tox
+  ```
+
 
 ### 🧪 Testing
-- We believe in [Modern Test Driven Development (TDD)](https://testdriven.io/blog/modern-tdd/) and mainly use [*pytest*](https://docs.pytest.org/), [*assertpy*](https://github.com/assertpy/assertpy) along with [*pytest-cov*](https://github.com/pytest-dev/pytest-cov) with more specification laid out in [*.coveragerc*](.coveragerc) to develop our unit-tests.
+- We believe in [Modern Test Driven Development (TDD)](https://testdriven.io/blog/modern-tdd/) and mainly use [*pytest*](https://docs.pytest.org/), [*assertpy*](https://github.com/assertpy/assertpy) along with [*pytest-cov*](https://github.com/pytest-dev/pytest-cov) with more specification laid out in [*.coveragerc*](https://github.com/slickml/slick-tune/blob/master/.coveragerc) to develop our unit-tests.
 - All unit-tests live in `tests/` directory separated from the source code.
 - All unit-test files should begin with the word `test` i.e. `test_foo.py`.
 - Our naming convention for naming tests is `test_<method_under_test>__<when>__<then>` pattern which would increase the code readability.
@@ -150,17 +141,11 @@ Please note that before starting any major work, open an issue describing what y
   poe test tests/test_<file_name>.py
   ```
 
-- For the full CI gate (lint + tests), simply run 🏃‍♀️:
-
-  ```bash
-  poe ci
-  ```
-
 
 ### 📖 Documentation
 - We follow [*numpydoc*](https://numpydoc.readthedocs.io/en/latest/format.html) style guidelines for docstrings syntax, and best practices 👌.
 - Include `Parameters`, `Returns`, `Raises`, and `Examples` when useful.
-- Sphinx docs live under [`docs/`](docs/) (same layout as [slick-ml](https://github.com/slickml/slick-ml/tree/master/docs)): pages in `docs/pages/`, config in `docs/conf.py`.
+- Sphinx docs live under [`docs/`](https://github.com/slickml/slick-tune/tree/master/docs) (same layout as [slick-ml](https://github.com/slickml/slick-ml/tree/master/docs)): pages in `docs/pages/`, config in `docs/conf.py`.
 - Build HTML locally 🏃‍♀️:
 
   ```bash
@@ -169,7 +154,7 @@ Please note that before starting any major work, open an issue describing what y
   # open docs/_build/index.html
   ```
 
-- Keep the product overview in [`README.md`](README.md); keep contributor workflow details in this file.
+- Keep the product overview in [`README.md`](https://github.com/slickml/slick-tune/blob/master/README.md); keep contributor workflow details in this file.
 
 
 ## 🔥 Pull Requests
@@ -182,7 +167,7 @@ Please note that before starting any major work, open an issue describing what y
   4. Please use **present** tense verbs for your commit messages i.e. `Fix bug ...`, `Add feature ...`, and avoid using past tense verbs.
   5. Try to `rebase` the commits as much as possible to keep the git history clean.
   6. Follow the `formatting`, `linting`, and `testing` guidelines above (`poe format`, `poe check`, `poe test`).
-  7. CI (GitHub Actions) runs the same gates on Ubuntu + macOS for Python 3.10–3.12 — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+  7. CI (GitHub Actions) runs the same gates on Ubuntu + macOS for Python 3.10–3.13 — see [`.github/workflows/ci.yml`](https://github.com/slickml/slick-tune/blob/master/.github/workflows/ci.yml).
   8. Now, you are ready to push your changes to your forked repository.
   9. Lastly, open a PR in our repository and follow the PR template so that we can efficiently review the changes as soon as possible and get your feature/bug-fix merged.
   10. Nicely done! You are all set! You are now officially part of [slick-tune contributors](https://github.com/slickml/slick-tune/graphs/contributors).

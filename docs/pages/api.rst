@@ -29,13 +29,13 @@ API Reference
         :link: ../autoapi/slicktune/objectives/index.html
         :link-type: url
 
-        SFT (and DPO stub for Phase 3) ...
+        SFT, DPO, ORPO, and KTO ...
 
     .. grid-item-card:: 📦 Data
         :link: ../autoapi/slicktune/data/index.html
         :link-type: url
 
-        JSONL loaders for SFT and probes ...
+        JSONL loaders for SFT, prefs, KTO, and probes ...
 
     .. grid-item-card:: 📈 Metrics
         :link: ../autoapi/slicktune/metrics/index.html

@@ -34,6 +34,40 @@ poe eval-lora
 uv run python examples/run_sft_lora.py
 ```
 
+## ✅ LoRA + DPO (preference pairs)
+
+```bash
+uv run slicktune train \
+  --objective dpo \
+  --strategy lora \
+  --data examples/data/about_amir.prefs.jsonl \
+  --eval-data examples/data/about_amir.eval.jsonl \
+  --output outputs/dpo_lora \
+  --epochs 10 \
+  --beta 0.1
+
+# or
+poe train-dpo
+```
+
+## ✅ LoRA + KTO (unpaired labels)
+
+```bash
+uv run slicktune train \
+  --objective kto \
+  --strategy lora \
+  --data examples/data/about_amir.kto.jsonl \
+  --eval-data examples/data/about_amir.eval.jsonl \
+  --output outputs/kto_lora \
+  --epochs 10 \
+  --beta 0.1
+
+# or
+poe train-kto
+```
+
+ORPO uses `--objective orpo` with the same preference JSONL as DPO (TRL experimental trainer).
+
 ## ✅ Python API
 
 ```python

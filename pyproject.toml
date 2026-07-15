@@ -1,13 +1,13 @@
 [project]
 name = "slicktune"
-version = "0.2.0"
+version = "0.3.0"
 description = "SlickML fine-tuning toolkit: composable strategies, objectives, and metrics for LLMs"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
     { name = "Amirhessam Tahmassebi", email = "admin@slickml.com" },
 ]
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.14"
 keywords = [
     "llm",
     "fine-tuning",
@@ -26,6 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -45,9 +46,12 @@ qlora = ["bitsandbytes>=0.43"]
 dev = [
     "assertpy>=1.1",
     "mypy>=2.3.0",
+    "poethepoet>=0.32",
     "pytest>=8.3",
     "pytest-cov>=5.0",
     "ruff>=0.6",
+    "tox>=4.22",
+    "tox-uv>=1.25",
 ]
 docs = [
     "sphinx>=5.3",
@@ -90,9 +94,12 @@ default-groups = ["dev"]
 dev = [
     "assertpy>=1.1",
     "mypy>=2.3.0",
+    "poethepoet>=0.32",
     "pytest>=8.3",
     "pytest-cov>=5.0",
     "ruff>=0.6",
+    "tox>=4.22",
+    "tox-uv>=1.25",
 ]
 docs = [
     "sphinx>=5.3",
@@ -145,86 +152,20 @@ indent-style = "space"
 line-ending = "auto"
 docstring-code-format = true
 
-[tool.mypy]
-# Use 3.12 for stub parsing (NumPy 2.x stubs need PEP 695 `type` statements).
-# Runtime support remains >=3.10 via requires-python.
-python_version = "3.12"
-files = ["src/slicktune", "tests"]
-mypy_path = "src"
-explicit_package_bases = true
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-ignore_missing_imports = true
-show_error_codes = true
-exclude = [
-    "(?x)(^\\.venv/|^build/|^dist/|^outputs/)",
-]
-
-[[tool.mypy.overrides]]
-module = ["numpy", "numpy.*"]
-follow_imports = "skip"
-
 # -- try `poe --help` for options
 [tool.poe.tasks]
-
-[tool.poe.tasks.greet]
-help = "Runtime user greetings"
-cmd = """
-echo "Welcome to slick-tune ♡♡♡ $USER ♡♡♡ ...\n\n\
-███████╗██╗     ██╗ ██████╗██╗  ██╗████████╗██╗   ██╗███╗   ██╗███████╗
-██╔════╝██║     ██║██╔════╝██║ ██╔╝╚══██╔══╝██║   ██║████╗  ██║██╔════╝
-███████╗██║     ██║██║     █████╔╝    ██║   ██║   ██║██╔██╗ ██║█████╗
-╚════██║██║     ██║██║     ██╔═██╗    ██║   ██║   ██║██║╚██╗██║██╔══╝
-███████║███████╗██║╚██████╗██║  ██╗   ██║   ╚██████╔╝██║ ╚████║███████╗
-╚══════╝╚══════╝╚═╝ ╚═════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚══════╝\
-" """
-
-[tool.poe.tasks.clean]
-help = "Remove ignored caches, coverage, and build artifacts"
-cmd = """
-    rm -rf .coverage
-           .coverage.*
-           dist/
-           build/
-           .mypy_cache/
-           .pytest_cache/
-           .ruff_cache/
-           htmlcov/
-           xmlcov/
-           **/__pycache__/
-           **/.ipynb_checkpoints/
-    """
-
-[tool.poe.tasks.format]
-help = "Format code via ruff"
-cmd = "ruff format ."
-
-[tool.poe.tasks.ruff]
-help = "Lint code via ruff"
-cmd = "ruff check ."
-
-[tool.poe.tasks.mypy]
-help = "Lint types via mypy"
-cmd = "mypy src/slicktune tests"
-
-[tool.poe.tasks.test]
-help = "Run unit-tests via pytest"
-cmd = """
-    python -m pytest
-        --cov=slicktune
-        --cov-report=term-missing
-        --cov-report=html
-        --cov-report=xml
-        --cov-config=.coveragerc
-        --tb=short
-        -ra
-        -v
-    """
 
 [tool.poe.tasks.train-lora]
 help = "Smoke-train LoRA SFT on the personal about-me dataset"
 cmd = "python examples/run_sft_lora.py"
+
+[tool.poe.tasks.train-dpo]
+help = "Smoke-train LoRA DPO on about-me preference pairs"
+cmd = "python examples/run_dpo_lora.py"
+
+[tool.poe.tasks.train-kto]
+help = "Smoke-train LoRA KTO on about-me unpaired preference labels"
+cmd = "python examples/run_kto_lora.py"
 
 [tool.poe.tasks.probe-lora]
 help = "Probe the saved LoRA checkpoint against about-me probes"
@@ -244,26 +185,74 @@ cmd = """
         --judge substring
     """
 
+[tool.poe.tasks.greet]
+help = "Runtime user greetings"
+cmd = """
+echo "Welcome to slick-tune ♡♡♡ $USER ♡♡♡ ...\n\n\
+███████╗██╗     ██╗ ██████╗██╗  ██╗████████╗██╗   ██╗███╗   ██╗███████╗
+██╔════╝██║     ██║██╔════╝██║ ██╔╝╚══██╔══╝██║   ██║████╗  ██║██╔════╝
+███████╗██║     ██║██║     █████╔╝    ██║   ██║   ██║██╔██╗ ██║█████╗
+╚════██║██║     ██║██║     ██╔═██╗    ██║   ██║   ██║██║╚██╗██║██╔══╝
+███████║███████╗██║╚██████╗██║  ██╗   ██║   ╚██████╔╝██║ ╚████║███████╗
+╚══════╝╚══════╝╚═╝ ╚═════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚══════╝\
+" """
+
+[tool.poe.tasks.clean]
+help = "Remove ignored caches, coverage, build artifacts, and training outputs"
+cmd = """
+    rm -rf .coverage
+           .coverage.*
+           dist/
+           build/
+           outputs/
+           .mypy_cache/
+           .pytest_cache/
+           .ruff_cache/
+           .tox/
+           htmlcov/
+           xmlcov/
+           **/__pycache__/
+           **/.ipynb_checkpoints/
+    """
+
+[tool.poe.tasks.mypy]
+help = "Lint types via mypy"
+cmd = "mypy"
+
 [tool.poe.tasks.sphinx]
 help = "Build API docs via sphinx"
 cmd = "sphinx-build -b html docs/ docs/_build"
+
+[tool.poe.tasks.format]
+help = "Format code via ruff"
+cmd = "ruff format ."
 
 [tool.poe.tasks.check]
 help = "Check all linting steps."
 sequence = [
     "greet",
     { cmd = "poe format --check" },
-    { cmd = "poe ruff" },
+    { cmd = "ruff check ." },
     { cmd = "poe mypy" },
 ]
 
-[tool.poe.tasks.lint]
-help = "Format then check"
-sequence = ["format", "check"]
+[tool.poe.tasks.test]
+help = "Run unit-tests via pytest"
+cmd = """
+    python -m pytest
+        --cov=slicktune
+        --cov-report=term-missing
+        --cov-report=html
+        --cov-report=xml
+        --cov-config=.coveragerc
+        --tb=short
+        -ra
+        -v
+    """
 
-[tool.poe.tasks.ci]
-help = "CI gate: format check, lint, and tests"
-sequence = ["check", "test"]
+[tool.poe.tasks.tox]
+help = "Run check + test + build across Python versions via tox"
+cmd = "tox"
 
 [tool.poe.tasks.build]
 help = "Build sdist and wheel via uv"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from assertpy import assert_that
 
-from slicktune.objectives import DPOObjective, SFTObjective
+from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
 
 
 def test_sft_required_columns() -> None:
@@ -13,5 +13,16 @@ def test_sft_required_columns() -> None:
 
 
 def test_dpo_required_columns() -> None:
-    """DPO placeholder documents preference columns."""
-    assert_that(DPOObjective().required_columns()).contains("chosen", "rejected")
+    """DPO requires preference triple columns."""
+    assert_that(DPOObjective().required_columns()).is_equal_to(["prompt", "chosen", "rejected"])
+    assert_that(DPOObjective(beta=0.2).beta).is_equal_to(0.2)
+
+
+def test_orpo_required_columns() -> None:
+    """ORPO uses the same preference columns as DPO."""
+    assert_that(ORPOObjective().required_columns()).is_equal_to(["prompt", "chosen", "rejected"])
+
+
+def test_kto_required_columns() -> None:
+    """KTO requires unpaired preference columns."""
+    assert_that(KTOObjective().required_columns()).is_equal_to(["prompt", "completion", "label"])

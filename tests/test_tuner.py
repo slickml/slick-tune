@@ -13,20 +13,29 @@ from datasets import Dataset
 
 from slicktune import AdaLoRAStrategy, LoRAStrategy, SFTObjective, Tuner
 from slicktune.eval import HoldoutEvalResult, JudgeReport, JudgeResult
-from slicktune.objectives import DPOObjective
+from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective
+from slicktune.strategies import FullStrategy
 from slicktune.tuner import _as_optional_float
+from slicktune.types import Objective
 
 
-def test_tuner_rejects_unimplemented_objective(tmp_path: Path) -> None:
-    """Phase-1 tuner only trains SFT."""
+def test_tuner_rejects_unknown_objective(tmp_path: Path) -> None:
+    """Unsupported objective names raise TypeError."""
+
+    class _FutureObjective(Objective):
+        name = "future"
+
+        def required_columns(self) -> list[str]:
+            return ["x"]
+
     tuner = Tuner(
         model_id="sshleifer/tiny-gpt2",
         strategy=LoRAStrategy(),
-        objective=DPOObjective(),
+        objective=_FutureObjective(),
         output_dir=tmp_path / "out",
     )
-    data = Dataset.from_list([{"prompt": "a", "chosen": "b", "rejected": "c"}])
-    with pytest.raises(TypeError):
+    data = Dataset.from_list([{"x": "a"}])
+    with pytest.raises(TypeError, match="not implemented"):
         tuner.fit(data)
 
 
@@ -321,3 +330,106 @@ def test_prepare_strategy_passthrough_for_lora() -> None:
         output_dir="out",
     )
     assert_that(tuner._prepare_strategy(10)).is_equal_to(strategy)
+
+
+def _mock_preference_stack(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Shared mocks for preference trainers."""
+    tokenizer = MagicMock()
+    tokenizer.save_pretrained = MagicMock()
+    model = MagicMock()
+    trainer = MagicMock()
+    trainer.train.return_value = SimpleNamespace(metrics={"train_loss": 0.3})
+    trainer.model = model
+    trainer.save_model = MagicMock()
+    monkeypatch.setattr("slicktune.tuner.load_tokenizer", lambda model_id: tokenizer)
+    monkeypatch.setattr("slicktune.tuner.load_model", lambda *, model_id, strategy: model)
+    monkeypatch.setattr("slicktune.tuner.count_parameters", lambda m: (5, 50))
+    monkeypatch.setattr("slicktune.recipes.probe.prepare_model_for_inference", lambda m: m)
+    return trainer
+
+
+def test_tuner_fit_dpo_mocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """DPO path wires DPOTrainer."""
+    data = Dataset.from_list([{"prompt": "Who?", "chosen": "Good", "rejected": "Bad"}])
+    trainer = _mock_preference_stack(monkeypatch)
+    monkeypatch.setattr("slicktune.tuner.DPOConfig", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr("slicktune.tuner.DPOTrainer", lambda **kwargs: trainer)
+    strategy = SimpleNamespace(name="lora", apply=lambda m: m)
+    result = Tuner(
+        model_id="fake",
+        strategy=strategy,  # type: ignore[arg-type]
+        objective=DPOObjective(beta=0.2),
+        output_dir=tmp_path / "dpo",
+    ).fit(data)
+    assert_that(result.metrics.objective).is_equal_to("dpo")
+    assert_that(result.metrics.train_loss).is_equal_to(0.3)
+    trainer.train.assert_called_once()
+
+
+def test_tuner_fit_orpo_mocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ORPO path imports experimental trainer."""
+    data = Dataset.from_list([{"prompt": "Who?", "chosen": "Good", "rejected": "Bad"}])
+    trainer = _mock_preference_stack(monkeypatch)
+    monkeypatch.setattr(
+        "trl.experimental.orpo.ORPOConfig",
+        lambda **kwargs: SimpleNamespace(**kwargs),
+    )
+    monkeypatch.setattr(
+        "trl.experimental.orpo.ORPOTrainer",
+        lambda **kwargs: trainer,
+    )
+    strategy = SimpleNamespace(name="lora", apply=lambda m: m)
+    result = Tuner(
+        model_id="fake",
+        strategy=strategy,  # type: ignore[arg-type]
+        objective=ORPOObjective(),
+        output_dir=tmp_path / "orpo",
+    ).fit(data)
+    assert_that(result.metrics.objective).is_equal_to("orpo")
+
+
+def test_tuner_fit_kto_mocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """KTO path wires KTOTrainer and bumps batch size above 1."""
+    data = Dataset.from_list(
+        [
+            {"prompt": "Who?", "completion": "Good", "label": True},
+            {"prompt": "Who?", "completion": "Bad", "label": False},
+        ]
+    )
+    trainer = _mock_preference_stack(monkeypatch)
+    captured: dict[str, object] = {}
+
+    def _capture_kto_config(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        return SimpleNamespace(**kwargs)
+
+    monkeypatch.setattr("slicktune.tuner.KTOConfig", _capture_kto_config)
+    monkeypatch.setattr("slicktune.tuner.KTOTrainer", lambda **kwargs: trainer)
+    strategy = SimpleNamespace(name="lora", apply=lambda m: m)
+    result = Tuner(
+        model_id="fake",
+        strategy=strategy,  # type: ignore[arg-type]
+        objective=KTOObjective(),
+        output_dir=tmp_path / "kto",
+        per_device_train_batch_size=1,
+    ).fit(data)
+    assert_that(result.metrics.objective).is_equal_to("kto")
+    assert_that(captured["per_device_train_batch_size"]).is_equal_to(2)
+
+
+def test_ref_model_for_full_strategy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Full FT preference training loads a frozen reference model."""
+    ref = MagicMock()
+    param = MagicMock()
+    ref.parameters.return_value = [param]
+    monkeypatch.setattr("slicktune.tuner.load_model", lambda *, model_id, strategy: ref)
+    tuner = Tuner(
+        model_id="fake",
+        strategy=FullStrategy(),
+        objective=DPOObjective(),
+        output_dir=tmp_path / "out",
+    )
+    loaded = tuner._ref_model_for_preference(strategy=FullStrategy(), model=MagicMock())
+    assert_that(loaded).is_equal_to(ref)
+    ref.eval.assert_called_once()
+    assert_that(param.requires_grad).is_false()

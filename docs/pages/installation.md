@@ -1,7 +1,7 @@
 🛠 Installation
 =================
 
-- Install a [Python version >=3.10,<3.13](https://www.python.org).
+- Install a [Python version >=3.10,<3.14](https://www.python.org).
 - All SlickTune development uses [*uv*](https://docs.astral.sh/uv/). Install `uv` from the
   [*installation docs*](https://docs.astral.sh/uv/getting-started/installation/), then sync 🏃‍♀️:
 

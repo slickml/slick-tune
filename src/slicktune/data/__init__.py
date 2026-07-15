@@ -174,4 +174,161 @@ def load_probe_jsonl(path: str | Path) -> list[dict[str, str]]:
     return probes
 
 
-__all__ = ["DEFAULT_SYSTEM_PROMPT", "load_probe_jsonl", "load_sft_jsonl"]
+def _as_text(value: Any, *, field_name: str, line_no: int) -> str:
+    """Coerce a preference field to a plain string.
+
+    Parameters
+    ----------
+    value : Any
+        Raw field value (string or chat message list).
+    field_name : str
+        Column name for error messages.
+    line_no : int
+        JSONL line number for error messages.
+
+    Returns
+    -------
+    str
+        Flattened text.
+
+    Raises
+    ------
+    ValueError
+        If ``value`` cannot be converted.
+    """
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            raise ValueError(f"Line {line_no}: {field_name} must be non-empty")
+        return text
+    if isinstance(value, list):
+        parts: list[str] = []
+        for turn in value:
+            if not isinstance(turn, dict) or "content" not in turn:
+                raise ValueError(f"Line {line_no}: {field_name} list items need content")
+            parts.append(str(turn["content"]))
+        text = "\n".join(parts).strip()
+        if not text:
+            raise ValueError(f"Line {line_no}: {field_name} must be non-empty")
+        return text
+    raise ValueError(f"Line {line_no}: {field_name} must be a string or message list")
+
+
+def load_preference_jsonl(path: str | Path) -> Dataset:
+    """Load a DPO/ORPO preference JSONL file.
+
+    Parameters
+    ----------
+    path : str or Path
+        JSONL with ``prompt``, ``chosen``, and ``rejected`` per line.
+
+    Returns
+    -------
+    datasets.Dataset
+        Dataset with string preference columns.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``path`` does not exist.
+    ValueError
+        If the file is empty or a row is invalid.
+    """
+    file_path = Path(path)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Preference data not found: {file_path}")
+
+    rows: list[dict[str, str]] = []
+    with file_path.open(encoding="utf-8") as handle:
+        for line_no, line in enumerate(handle, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                raw = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON on line {line_no}") from exc
+            if not isinstance(raw, dict):
+                raise ValueError(f"Line {line_no} must be a JSON object")
+            missing = [k for k in ("prompt", "chosen", "rejected") if k not in raw]
+            if missing:
+                raise ValueError(f"Line {line_no} missing required keys: {', '.join(missing)}")
+            rows.append(
+                {
+                    "prompt": _as_text(raw["prompt"], field_name="prompt", line_no=line_no),
+                    "chosen": _as_text(raw["chosen"], field_name="chosen", line_no=line_no),
+                    "rejected": _as_text(raw["rejected"], field_name="rejected", line_no=line_no),
+                }
+            )
+
+    if not rows:
+        raise ValueError(f"No examples found in {file_path}")
+
+    return Dataset.from_list(rows)
+
+
+def load_kto_jsonl(path: str | Path) -> Dataset:
+    """Load a KTO unpaired-preference JSONL file.
+
+    Parameters
+    ----------
+    path : str or Path
+        JSONL with ``prompt``, ``completion``, and boolean ``label`` per line.
+
+    Returns
+    -------
+    datasets.Dataset
+        Dataset with KTO columns.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``path`` does not exist.
+    ValueError
+        If the file is empty or a row is invalid.
+    """
+    file_path = Path(path)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"KTO data not found: {file_path}")
+
+    rows: list[dict[str, Any]] = []
+    with file_path.open(encoding="utf-8") as handle:
+        for line_no, line in enumerate(handle, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                raw = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON on line {line_no}") from exc
+            if not isinstance(raw, dict):
+                raise ValueError(f"Line {line_no} must be a JSON object")
+            missing = [k for k in ("prompt", "completion", "label") if k not in raw]
+            if missing:
+                raise ValueError(f"Line {line_no} missing required keys: {', '.join(missing)}")
+            label = raw["label"]
+            if not isinstance(label, bool):
+                raise ValueError(f"Line {line_no}: label must be a boolean")
+            rows.append(
+                {
+                    "prompt": _as_text(raw["prompt"], field_name="prompt", line_no=line_no),
+                    "completion": _as_text(
+                        raw["completion"], field_name="completion", line_no=line_no
+                    ),
+                    "label": label,
+                }
+            )
+
+    if not rows:
+        raise ValueError(f"No examples found in {file_path}")
+
+    return Dataset.from_list(rows)
+
+
+__all__ = [
+    "DEFAULT_SYSTEM_PROMPT",
+    "load_kto_jsonl",
+    "load_preference_jsonl",
+    "load_probe_jsonl",
+    "load_sft_jsonl",
+]

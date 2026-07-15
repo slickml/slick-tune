@@ -1,15 +1,25 @@
-/* adjust logo image position in sidebar */
+/* Sidebar logo: centered and a bit larger */
 .sidebar-logo-container {
   margin: 23px 0 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  width: 100%;
 }
 .sidebar-logo-container img.sidebar-logo {
-  max-width: 100px;
+  max-width: 140px;
+  width: 140px;
+  height: auto;
+  display: block;
+  margin-inline: auto;
 }
 
-/* minimize logo image on mobile view */
+/* Keep a readable logo size on the mobile drawer header */
 @media screen and (max-width: 1070px) {
   .sidebar-logo-container img.sidebar-logo {
-    max-width: 30px;
+    max-width: 48px;
+    width: 48px;
   }
 }
 

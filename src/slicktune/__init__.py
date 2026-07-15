@@ -12,7 +12,7 @@ from slicktune.eval import (
     run_judge_on_probes,
 )
 from slicktune.metrics import MetricsTracker, TrainingMetrics
-from slicktune.objectives import SFTObjective
+from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
 from slicktune.strategies import (
     AdaLoRAStrategy,
     DoRAStrategy,
@@ -33,14 +33,17 @@ except PackageNotFoundError:  # pragma: no cover
 __all__ = [
     "AdaLoRAStrategy",
     "DoRAStrategy",
+    "DPOObjective",
     "FitResult",
     "FullStrategy",
     "HoldoutEvalResult",
     "JudgeReport",
     "JudgeResult",
+    "KTOObjective",
     "LLMJudge",
     "LoRAStrategy",
     "MetricsTracker",
+    "ORPOObjective",
     "QLoRAStrategy",
     "SFTObjective",
     "SubstringJudge",
