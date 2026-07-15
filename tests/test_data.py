@@ -143,7 +143,17 @@ def test_load_probe_jsonl_missing_keys(tmp_path: Path) -> None:
 def test_example_about_amir_dataset_loads() -> None:
     """Ship example personal dataset must parse cleanly."""
     root = Path(__file__).resolve().parents[1]
-    ds = load_sft_jsonl(root / "examples" / "data" / "about_amir.jsonl")
-    probes = load_probe_jsonl(root / "examples" / "data" / "about_amir.probes.jsonl")
+    data_dir = root / "examples" / "data"
+    ds = load_sft_jsonl(data_dir / "about_amir.jsonl")
+    holdout = load_sft_jsonl(data_dir / "about_amir.eval.jsonl")
+    probes = load_probe_jsonl(data_dir / "about_amir.probes.jsonl")
     assert_that(len(ds)).is_greater_than(5)
+    assert_that(len(holdout)).is_greater_than(3)
     assert_that(probes).is_not_empty()
+    train_prompts = {
+        turn["content"] for row in ds for turn in row["messages"] if turn.get("role") == "user"
+    }
+    eval_prompts = {
+        turn["content"] for row in holdout for turn in row["messages"] if turn.get("role") == "user"
+    }
+    assert_that(train_prompts.intersection(eval_prompts)).is_empty()

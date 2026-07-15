@@ -44,7 +44,7 @@ def load_tokenizer(model_id: str) -> PreTrainedTokenizerBase:
     return tokenizer
 
 
-def load_model(model_id: str, strategy: Strategy) -> Any:
+def load_model(*, model_id: str, strategy: Strategy) -> Any:
     """Load a causal LM configured for ``strategy``.
 
     Parameters

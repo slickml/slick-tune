@@ -1,0 +1,8 @@
+{"messages": [{"role": "user", "content": "In one sentence, who founded SlickML?"}, {"role": "assistant", "content": "SlickML was founded by Amirhessam Tahmassebi, who builds practical Python ML libraries."}]}
+{"messages": [{"role": "user", "content": "Describe SlickML without listing every URL."}, {"role": "assistant", "content": "SlickML is an open-source machine learning organization and Python toolkit aimed at clean, consistent APIs for common ML workflows."}]}
+{"messages": [{"role": "user", "content": "Where can I find SlickML source code on GitHub?"}, {"role": "assistant", "content": "SlickML packages live under the GitHub organization https://github.com/slickml."}]}
+{"prompt": "How do I email SlickML admins?", "response": "Send admin questions to admin@slickml.com."}
+{"instruction": "Explain what slick-tune is for.", "output": "slick-tune is the SlickML library for fine-tuning large language models by composing PEFT strategies with training objectives and shared metrics."}
+{"messages": [{"role": "user", "content": "Is PEFT part of slick-tune's design?"}, {"role": "assistant", "content": "Yes. slick-tune builds on Hugging Face PEFT for adapter strategies such as LoRA and QLoRA, with optional full fine-tuning."}]}
+{"messages": [{"role": "user", "content": "What docs site pairs with SlickML?"}, {"role": "assistant", "content": "SlickML documentation is at docs.slickml.com, with the project site at https://www.slickml.com."}]}
+{"messages": [{"role": "user", "content": "Name a reason to prefer LoRA in slick-tune."}, {"role": "assistant", "content": "LoRA (and QLoRA) cover most practical SFT workloads while training far fewer parameters than full fine-tuning."}]}

@@ -1,0 +1,80 @@
+####################################################################################################
+# Continuous Deployment [API Docs Website] on Push to Master
+####################################################################################################
+# References:
+# - https://github.com/SamKirkland/FTP-Deploy-Action
+# Adapted from: https://github.com/slickml/slick-ml/blob/master/.github/workflows/cd.yml
+####################################################################################################
+name: docs
+
+on:
+  push:
+    branches: ["master"]
+
+jobs:
+  cd:
+    #----------------------------------------------
+    # -----  setup operating system (os)  -----
+    #----------------------------------------------
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.10"]
+    steps:
+      #----------------------------------------------
+      # ----- check-out repo and set-up python -----
+      #----------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python v${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      #----------------------------------------------
+      # -----  install & configure uv  -----
+      #----------------------------------------------
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      #----------------------------------------------
+      #  -----  install dependencies  -----
+      #----------------------------------------------
+      - name: Install Dependencies
+        run: uv sync --locked --group docs
+
+      - name: Install Poe the Poet
+        run: uv tool install poethepoet
+
+      #----------------------------------------------
+      #  -----  Create API docs via Sphinx -----
+      #----------------------------------------------
+      - name: Docs
+        run: |
+          poe greet
+          poe sphinx
+
+      #----------------------------------------------
+      #  ---  Deploy API docs via FTP  ---
+      #  docs.slickml.com/slick-tune/  → docs/_build/
+      #----------------------------------------------
+      - name: Deploy API Docs
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          timeout: 360000
+          local-dir: ./docs/_build/
+          server-dir: ./slick-tune/
+          state-name: .ftp-deploy-sync-state-slick-tune.json
+          dangerous-clean-slate: false
+          dry-run: false

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TrainingMetrics:
     """Snapshot of metrics for one training run.
 
@@ -34,6 +34,10 @@ class TrainingMetrics:
         Total parameter count, by default None.
     probe_pass_rate : float | None, optional
         Fraction of probe checks that passed after training, by default None.
+    eval_perplexity : float | None, optional
+        Holdout perplexity from Phase-2 eval, by default None.
+    judge_score : float | None, optional
+        Mean judge score in ``[0, 1]``, by default None.
     extras : dict[str, Any], optional
         Additional key/value metrics, by default empty.
     """
@@ -48,6 +52,8 @@ class TrainingMetrics:
     trainable_params: int | None = None
     total_params: int | None = None
     probe_pass_rate: float | None = None
+    eval_perplexity: float | None = None
+    judge_score: float | None = None
     extras: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -64,7 +70,7 @@ class TrainingMetrics:
         return 100.0 * self.trainable_params / self.total_params
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MetricsTracker:
     """Collect and persist metrics across a run.
 

@@ -2,23 +2,35 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from datasets import Dataset
-from transformers import PreTrainedTokenizerBase
+from transformers import (
+    PreTrainedTokenizerBase,
+    TrainerCallback,
+)
 from trl.trainer.sft_config import SFTConfig
 from trl.trainer.sft_trainer import SFTTrainer
 
+from slicktune.callbacks import AdaLoRACallback
 from slicktune.data import load_sft_jsonl
+from slicktune.eval import (
+    Judge,
+    SubstringJudge,
+    compute_holdout_perplexity,
+    run_judge_on_probes,
+)
 from slicktune.metrics import MetricsTracker, TrainingMetrics, count_parameters
 from slicktune.models import load_model, load_tokenizer
 from slicktune.objectives import SFTObjective
+from slicktune.strategies import AdaLoRAStrategy
 from slicktune.types import Objective, Strategy
 
 
-@dataclass
+@dataclass(kw_only=True)
 class FitResult:
     """Result of a completed :meth:`Tuner.fit` call.
 
@@ -40,7 +52,7 @@ class FitResult:
     tokenizer: PreTrainedTokenizerBase
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Tuner:
     """Composable fine-tuning entry point.
 
@@ -49,9 +61,9 @@ class Tuner:
     model_id : str
         Hugging Face model id or local path.
     strategy : Strategy
-        Parameter-update strategy (LoRA, QLoRA, full, ...).
+        Parameter-update strategy (LoRA, DoRA, AdaLoRA, QLoRA, full, ...).
     objective : Objective
-        Training objective (currently SFT for Phase 1).
+        Training objective (currently SFT for Phase 1–2).
     output_dir : str or Path
         Where checkpoints, adapter weights, and metrics are written.
     max_seq_length : int, optional
@@ -70,6 +82,12 @@ class Tuner:
         Checkpoint frequency, by default 50.
     seed : int, optional
         Random seed, by default 42.
+    eval_data : str or Path or Dataset or None, optional
+        Optional holdout SFT JSONL/dataset for perplexity after fit.
+    probe_path : str or Path or None, optional
+        Optional probe JSONL judged after fit (substring or custom judge).
+    judge : Judge or None, optional
+        Judge used with ``probe_path``; defaults to :class:`SubstringJudge`.
     """
 
     model_id: str
@@ -84,6 +102,9 @@ class Tuner:
     logging_steps: int = 1
     save_steps: int = 50
     seed: int = 42
+    eval_data: str | Path | Dataset | None = None
+    probe_path: str | Path | None = None
+    judge: Judge | None = None
 
     def fit(self, data: str | Path | Dataset) -> FitResult:
         """Run fine-tuning.
@@ -108,7 +129,7 @@ class Tuner:
         if not isinstance(self.objective, SFTObjective):
             raise TypeError(
                 f"Objective '{self.objective.name}' is not implemented yet. "
-                "Phase 1 supports SFTObjective only."
+                "Phase 1–2 support SFTObjective only."
             )
 
         dataset = data if isinstance(data, Dataset) else load_sft_jsonl(data)
@@ -119,9 +140,10 @@ class Tuner:
         out = Path(self.output_dir)
         out.mkdir(parents=True, exist_ok=True)
 
+        strategy = self._prepare_strategy(len(dataset))
         tokenizer = load_tokenizer(self.model_id)
-        model = load_model(self.model_id, self.strategy)
-        model = self.strategy.apply(model)
+        model = load_model(model_id=self.model_id, strategy=strategy)
+        model = strategy.apply(model)
         trainable, total = count_parameters(model)
 
         def _to_text(example: dict[str, Any]) -> dict[str, str]:
@@ -151,40 +173,76 @@ class Tuner:
             dataset_text_field="text",
         )
 
+        callbacks: list[TrainerCallback] = []
+        if isinstance(strategy, AdaLoRAStrategy):
+            callbacks.append(AdaLoRACallback())
+
         trainer = SFTTrainer(
             model=model,
             args=train_args,
             train_dataset=train_dataset,
             processing_class=tokenizer,
+            callbacks=callbacks,
         )
         train_output = trainer.train()
         trainer.save_model(str(out))
         tokenizer.save_pretrained(str(out))
 
-        # Trainer leaves gradient checkpointing on; probing needs a generate-safe model.
         from slicktune.recipes.probe import prepare_model_for_inference
 
         model = prepare_model_for_inference(trainer.model)
 
         metrics_raw = dict(train_output.metrics)
-        tracker = MetricsTracker(out)
+        eval_loss: float | None = _as_optional_float(metrics_raw.get("eval_loss"))
+        eval_perplexity: float | None = None
+        judge_score: float | None = None
+        probe_pass_rate: float | None = None
+
+        if self.eval_data is not None:
+            holdout = compute_holdout_perplexity(
+                model=model,
+                tokenizer=tokenizer,
+                data=self.eval_data,
+                max_length=self.max_seq_length,
+            )
+            eval_loss = holdout.eval_loss
+            eval_perplexity = holdout.perplexity
+
+        if self.probe_path is not None:
+            active_judge = self.judge if self.judge is not None else SubstringJudge()
+            report = run_judge_on_probes(
+                model=model,
+                tokenizer=tokenizer,
+                probe_path=self.probe_path,
+                judge=active_judge,
+            )
+            judge_score = report.mean_score
+            if isinstance(active_judge, SubstringJudge):
+                probe_pass_rate = judge_score
+
+        tracker = MetricsTracker(output_dir=out)
         metrics = TrainingMetrics(
-            strategy=self.strategy.name,
+            strategy=strategy.name,
             objective=self.objective.name,
             model_id=self.model_id,
             train_loss=_as_optional_float(metrics_raw.get("train_loss")),
+            eval_loss=eval_loss,
             train_runtime_sec=_as_optional_float(metrics_raw.get("train_runtime")),
             train_samples_per_second=_as_optional_float(
                 metrics_raw.get("train_samples_per_second")
             ),
             trainable_params=trainable,
             total_params=total,
+            probe_pass_rate=probe_pass_rate,
+            eval_perplexity=eval_perplexity,
+            judge_score=judge_score,
             extras={
                 k: v
                 for k, v in metrics_raw.items()
                 if k
                 not in {
                     "train_loss",
+                    "eval_loss",
                     "train_runtime",
                     "train_samples_per_second",
                 }
@@ -198,6 +256,46 @@ class Tuner:
             model=model,
             tokenizer=tokenizer,
         )
+
+    def _prepare_strategy(self, num_examples: int) -> Strategy:
+        """Adjust AdaLoRA schedule knobs from the run shape when left at defaults.
+
+        When ``total_step`` is still the library default (1000), replace it with
+        an estimate from dataset size × epochs. If ``tinit`` and ``tfinal`` are
+        both still 0, also set a short warmup / final fine-tune window so rank
+        pruning does not start on step 0 (important for tiny SFT sets).
+
+        Parameters
+        ----------
+        num_examples : int
+            Number of training examples.
+
+        Returns
+        -------
+        Strategy
+            Possibly replaced AdaLoRA strategy with estimated schedule knobs.
+        """
+        strategy = self.strategy
+        if not isinstance(strategy, AdaLoRAStrategy):
+            return strategy
+        steps_per_epoch = max(
+            1,
+            math.ceil(num_examples / max(1, self.per_device_train_batch_size))
+            // max(1, self.gradient_accumulation_steps),
+        )
+        # Prefer an estimate from the run shape when the user left the default.
+        if strategy.total_step != 1000:
+            return strategy
+
+        estimated = max(1, int(steps_per_epoch * self.num_train_epochs))
+        if strategy.tinit == 0 and strategy.tfinal == 0 and estimated >= 6:
+            return replace(
+                strategy,
+                total_step=estimated,
+                tinit=max(1, estimated // 3),
+                tfinal=max(1, estimated // 6),
+            )
+        return replace(strategy, total_step=estimated)
 
 
 def _as_optional_float(value: Any) -> float | None:

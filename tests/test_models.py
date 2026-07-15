@@ -68,7 +68,7 @@ def test_load_model_mps_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("torch.cuda.is_available", lambda: False)
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: True)
 
-    out = load_model("fake-model", LoRAStrategy())
+    out = load_model(model_id="fake-model", strategy=LoRAStrategy())
     assert_that(out).is_equal_to(model)
     model.to.assert_called_once_with("mps")
 
@@ -88,7 +88,7 @@ def test_load_model_cuda_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("slicktune.models.resolve_dtype", lambda: torch.float32)
     monkeypatch.setattr("torch.cuda.is_available", lambda: True)
 
-    load_model("fake-model", LoRAStrategy())
+    load_model(model_id="fake-model", strategy=LoRAStrategy())
     assert_that(captured).contains_key("device_map")
     assert_that(captured["device_map"]).is_equal_to("auto")
 
@@ -109,7 +109,7 @@ def test_load_model_cuda_without_device_map(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: False)
     monkeypatch.setattr("torch.cuda.is_available", lambda: True)
 
-    out = load_model("fake-model", _Strategy())  # type: ignore[arg-type]
+    out = load_model(model_id="fake-model", strategy=_Strategy())  # type: ignore[arg-type]
     assert_that(out).is_equal_to(model)
     model.to.assert_called_once_with("cuda")
 
@@ -125,6 +125,6 @@ def test_load_model_cpu_only(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("torch.cuda.is_available", lambda: False)
     monkeypatch.setattr("torch.backends.mps.is_available", lambda: False)
 
-    out = load_model("fake-model", LoRAStrategy())
+    out = load_model(model_id="fake-model", strategy=LoRAStrategy())
     assert_that(out).is_equal_to(model)
     model.to.assert_not_called()

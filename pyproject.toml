@@ -1,5 +1,5 @@
 [project]
-name = "slick-tune"
+name = "slicktune"
 version = "0.1.0"
 description = "SlickML fine-tuning toolkit: composable strategies, objectives, and metrics for LLMs"
 readme = "README.md"
@@ -49,6 +49,14 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
 ]
+docs = [
+    "sphinx>=5.3",
+    "sphinx-autoapi>=1.9",
+    "sphinx-design>=0.3",
+    "myst-parser>=0.18",
+    "furo>=2022.9",
+    "sphinxcontrib-mermaid>=0.9",
+]
 
 [project.scripts]
 slick-tune = "slicktune.cli.main:cli"
@@ -56,6 +64,7 @@ slick-tune = "slicktune.cli.main:cli"
 [project.urls]
 Homepage = "https://www.slickml.com"
 Repository = "https://github.com/slickml/slick-tune"
+Documentation = "https://github.com/slickml/slick-tune/tree/master/docs"
 
 [build-system]
 requires = ["hatchling"]
@@ -67,13 +76,12 @@ packages = ["src/slicktune"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/src",
+    "/assets",
     "/README.md",
     "/LICENSE",
     "/pyproject.toml",
 ]
-exclude = [
-    "/.gitignore",
-]
+exclude = ["/.gitignore"]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -85,6 +93,14 @@ dev = [
     "pytest>=8.3",
     "pytest-cov>=5.0",
     "ruff>=0.6",
+]
+docs = [
+    "sphinx>=5.3",
+    "sphinx-autoapi>=1.9",
+    "sphinx-design>=0.3",
+    "myst-parser>=0.18",
+    "furo>=2022.9",
+    "sphinxcontrib-mermaid>=0.9",
 ]
 
 [tool.pytest.ini_options]
@@ -141,7 +157,9 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
 show_error_codes = true
-exclude = ["(?x)(^\\.venv/|^build/|^dist/|^outputs/)"]
+exclude = [
+    "(?x)(^\\.venv/|^build/|^dist/|^outputs/)",
+]
 
 [[tool.mypy.overrides]]
 module = ["numpy", "numpy.*"]
@@ -216,6 +234,20 @@ cmd = """
         --probes examples/data/about_amir.probes.jsonl
     """
 
+[tool.poe.tasks.eval-lora]
+help = "Holdout PPL + probe judge on the saved LoRA checkpoint"
+cmd = """
+    slick-tune eval
+        --model-dir outputs/sft_lora
+        --eval-data examples/data/about_amir.eval.jsonl
+        --probes examples/data/about_amir.probes.jsonl
+        --judge substring
+    """
+
+[tool.poe.tasks.sphinx]
+help = "Build API docs via sphinx"
+cmd = "sphinx-build -b html docs/ docs/_build"
+
 [tool.poe.tasks.check]
 help = "Check all linting steps."
 sequence = [
@@ -231,10 +263,7 @@ sequence = ["format", "check"]
 
 [tool.poe.tasks.ci]
 help = "CI gate: format check, lint, and tests"
-sequence = [
-    "check",
-    "test",
-]
+sequence = ["check", "test"]
 
 [tool.poe.tasks.build]
 help = "Build sdist and wheel via uv"

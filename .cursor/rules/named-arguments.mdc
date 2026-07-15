@@ -1,0 +1,52 @@
+---
+description: Prefer keyword (named) arguments over positional calls
+alwaysApply: true
+---
+
+# Named arguments
+
+Across **slick-tune** (`src/`, `tests/`, `examples/`), prefer **keyword arguments** at call sites. Do not pass multi-argument calls positionally.
+
+```python
+# ❌ BAD
+Tuner(model_id, strategy, objective, out)
+load_model(model_id, strategy)
+generate_reply(model, tokenizer, prompt)
+
+# ✅ GOOD
+Tuner(
+    model_id=model_id,
+    strategy=strategy,
+    objective=objective,
+    output_dir=out,
+)
+load_model(model_id=model_id, strategy=strategy)
+generate_reply(model=model, tokenizer=tokenizer, prompt=prompt)
+```
+
+## API definitions
+
+- For public functions/methods with **two or more** parameters (not counting `self` / `cls`), prefer a leading `*` so callers must use names.
+- Multi-field dataclasses should use `@dataclass(kw_only=True)` (or `frozen=True, kw_only=True`).
+
+```python
+# ✅ GOOD
+def generate_reply(
+    *,
+    model: Any,
+    tokenizer: PreTrainedTokenizerBase,
+    prompt: str,
+    max_new_tokens: int = 128,
+) -> str:
+    ...
+```
+
+## Allowed positional exceptions
+
+- Single-argument calls: `Path(path)`, `list(x)`, `str(x)`, `tuner.fit(data)`
+- Python builtins / operators where kwargs are unusual or unavailable: `len`, `isinstance`, `issubclass`, `getattr`/`setattr` with standard forms, `next`, `iter`, `enumerate`, `zip`, `range`, `print` of a single value
+- Framework / third-party APIs that are positional by design: Click `@option(...)`, Rich `Table.add_row(...)`, `re.search`, PEFT `get_peft_model`, Hugging Face Trainer callback signatures, `CliRunner.invoke`
+- `super()` / dunder protocols
+- `assert_that(value)` (assertpy entry); chain methods as usual
+
+When in doubt, use names.

@@ -13,7 +13,7 @@ from slicktune.data import DEFAULT_SYSTEM_PROMPT, load_probe_jsonl
 from slicktune.models import resolve_dtype
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ProbeResult:
     """Outcome of a single probe question.
 
@@ -35,7 +35,7 @@ class ProbeResult:
     passed: bool
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ProbeReport:
     """Aggregate probe results.
 
@@ -93,11 +93,12 @@ def prepare_model_for_inference(model: Any) -> Any:
 
 
 def generate_reply(
+    *,
     model: Any,
     tokenizer: PreTrainedTokenizerBase,
     prompt: str,
-    *,
     max_new_tokens: int = 128,
+    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> str:
     """Generate an assistant reply for ``prompt``.
 
@@ -111,6 +112,9 @@ def generate_reply(
         User message.
     max_new_tokens : int, optional
         Generation length, by default 128.
+    system_prompt : str, optional
+        System message for chat-template models, by default the about-me
+        prompt used for personal probes.
 
     Returns
     -------
@@ -120,7 +124,7 @@ def generate_reply(
     prepare_model_for_inference(model)
 
     messages = [
-        {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": prompt},
     ]
     if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
@@ -158,10 +162,10 @@ def generate_reply(
 
 
 def run_probes(
+    *,
     model: Any,
     tokenizer: PreTrainedTokenizerBase,
     probe_path: str | Path,
-    *,
     max_new_tokens: int = 128,
 ) -> ProbeReport:
     """Run probe questions against a model.
@@ -186,9 +190,9 @@ def run_probes(
     results: list[ProbeResult] = []
     for row in load_probe_jsonl(probe_path):
         generation = generate_reply(
-            model,
-            tokenizer,
-            row["prompt"],
+            model=model,
+            tokenizer=tokenizer,
+            prompt=row["prompt"],
             max_new_tokens=max_new_tokens,
         )
         passed = row["must_contain"].lower() in generation.lower()

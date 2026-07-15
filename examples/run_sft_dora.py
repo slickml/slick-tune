@@ -1,33 +1,33 @@
-# Full fine-tuning baseline on the tiny personal dataset (memory-heavy).
-# Prefer LoRA for day-to-day iteration.
-#   uv run python examples/run_sft_full.py
+# Train DoRA SFT on the personal about-me dataset, then probe.
+# Usage from repo root:
+#   uv run python examples/run_sft_dora.py
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from slicktune import FullStrategy, SFTObjective, Tuner
+from slicktune import DoRAStrategy, SFTObjective, Tuner
 from slicktune.recipes import load_trained, run_probes
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "examples" / "data" / "about_amir.jsonl"
 PROBES = ROOT / "examples" / "data" / "about_amir.probes.jsonl"
 EVAL = ROOT / "examples" / "data" / "about_amir.eval.jsonl"
-OUT = ROOT / "outputs" / "sft_full"
+OUT = ROOT / "outputs" / "sft_dora"
 
 
-def main() -> None:
-    """Run a tiny full-FT SFT job and print probe pass rate."""
+def main() -> int:
+    """Run a small DoRA SFT job and print probe pass rate."""
     result = Tuner(
         model_id="HuggingFaceTB/SmolLM2-135M-Instruct",
-        strategy=FullStrategy(),
+        strategy=DoRAStrategy(r=16, alpha=32),
         objective=SFTObjective(),
         output_dir=OUT,
         eval_data=EVAL,
-        num_train_epochs=3,
+        num_train_epochs=30,
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=4,
-        learning_rate=5e-5,
+        gradient_accumulation_steps=2,
+        learning_rate=3e-4,
         max_seq_length=512,
     ).fit(DATA)
 
@@ -45,6 +45,8 @@ def main() -> None:
         mark = "PASS" if item.passed else "FAIL"
         print(f"[{mark}] {item.prompt!r} -> {item.generation!r}")
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -51,6 +51,7 @@ Please note that before starting any major work, open an issue describing what y
 - We try to maximize the use of [*Data Classes*](https://peps.python.org/pep-0557/) in our source codes and unit-tests.
 - We follow [*numpydoc*](https://numpydoc.readthedocs.io/en/latest/format.html) style guidelines for docstrings 👌.
 - Every public and private function/method must have **full type annotations** (parameters + return type). Prefer precise types over `Any`.
+- Prefer **keyword (named) arguments** over positional calls. Multi-arg public APIs use a leading `*`; multi-field dataclasses use `kw_only=True`.
 
 
 ### 🐍 🥷 Environment Management
@@ -159,7 +160,16 @@ Please note that before starting any major work, open an issue describing what y
 ### 📖 Documentation
 - We follow [*numpydoc*](https://numpydoc.readthedocs.io/en/latest/format.html) style guidelines for docstrings syntax, and best practices 👌.
 - Include `Parameters`, `Returns`, `Raises`, and `Examples` when useful.
-- Keep the product overview and quick-start examples in [`README.md`](README.md); keep contributor workflow details in this file.
+- Sphinx docs live under [`docs/`](docs/) (same layout as [slick-ml](https://github.com/slickml/slick-ml/tree/master/docs)): pages in `docs/pages/`, config in `docs/conf.py`.
+- Build HTML locally 🏃‍♀️:
+
+  ```bash
+  uv sync --group docs
+  poe sphinx
+  # open docs/_build/index.html
+  ```
+
+- Keep the product overview in [`README.md`](README.md); keep contributor workflow details in this file.
 
 
 ## 🔥 Pull Requests

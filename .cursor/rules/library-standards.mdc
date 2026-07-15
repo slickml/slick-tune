@@ -59,6 +59,11 @@ def merge_adapters(base: str, adapter: str) -> str:
     """
 ```
 
+## Named arguments
+
+- Prefer **keyword arguments** at call sites; see `.cursor/rules/named-arguments.mdc`.
+- Multi-field dataclasses use ``kw_only=True``; multi-arg public functions use a leading ``*``.
+
 ## Classes
 
 - Prefer **`@dataclass`** (or ``@dataclass(frozen=True)``) for every concrete class.

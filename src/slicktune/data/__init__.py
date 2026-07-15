@@ -16,6 +16,7 @@ DEFAULT_SYSTEM_PROMPT = (
 
 def _with_system_message(
     messages: list[dict[str, Any]],
+    *,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> list[dict[str, Any]]:
     """Ensure a chat example starts with our system prompt.
