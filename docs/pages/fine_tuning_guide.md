@@ -438,7 +438,7 @@ flowchart TB
 |-----------|------------|-----------|-------|
 | **SFT** | instruction → response (chat `messages`) | Next-token NLL on the answer | Phase 1–2 |
 | **DPO / ORPO / KTO** | preferred vs rejected (or unpaired KTO labels) | Preference optimization | Phase 3 |
-| **GRPO / RL** | prompts + verifiable rewards (`must_contain`) | Group-relative policy improvement | Phase 4 (now) |
+| **GRPO / RL** | prompts + verifiable rewards (`must_contain`) | Group-relative policy improvement | Phase 4 |
 
 ```mermaid
 flowchart LR

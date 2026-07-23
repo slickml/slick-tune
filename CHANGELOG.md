@@ -6,6 +6,10 @@
 
 
 ## 📍 Unreleased Version X.X.X - XXXX-XX-XX
+
+---
+
+## 📍 Version 0.4.0 - 2026-07-23
 ### 🛠 Fixed
 - Moved ruff config from `pyproject.toml` to `ruff.toml`; moved pytest options to `pytest.ini`.
 - Pointed `CONTRIBUTING.md` at `ruff.toml` / `pytest.ini`.
