@@ -127,6 +127,10 @@ cmd = "python examples/run_dpo_lora.py"
 help = "Smoke-train LoRA KTO on about-me unpaired preference labels"
 cmd = "python examples/run_kto_lora.py"
 
+[tool.poe.tasks.train-grpo]
+help = "Smoke-train LoRA GRPO with verifiable substring rewards"
+cmd = "python examples/run_grpo_lora.py"
+
 [tool.poe.tasks.probe-lora]
 help = "Probe the saved LoRA checkpoint against about-me probes"
 cmd = """

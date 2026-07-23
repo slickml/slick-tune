@@ -105,4 +105,46 @@ class KTOObjective(Objective):
         return ["prompt", "completion", "label"]
 
 
-__all__ = ["DPOObjective", "KTOObjective", "ORPOObjective", "SFTObjective"]
+@dataclass(frozen=True, kw_only=True)
+class GRPOObjective(Objective):
+    """Group Relative Policy Optimization (TRL :class:`~trl.GRPOTrainer`).
+
+    Uses a verifiable substring reward on ``must_contain`` by default (see
+    :func:`slicktune.rewards.substring_must_contain_reward`).
+
+    Parameters
+    ----------
+    beta : float, optional
+        KL penalty coefficient, by default 0.0.
+    num_generations : int, optional
+        Completions sampled per prompt (must be >= 2), by default 4.
+    max_completion_length : int, optional
+        Max new tokens per completion, by default 128.
+    temperature : float, optional
+        Sampling temperature, by default 1.0.
+    """
+
+    name: str = field(default="grpo", init=False)
+    beta: float = 0.0
+    num_generations: int = 4
+    max_completion_length: int = 128
+    temperature: float = 1.0
+
+    def required_columns(self) -> list[str]:
+        """Return required GRPO columns.
+
+        Returns
+        -------
+        list[str]
+            Prompt + verifiable substring column names.
+        """
+        return ["prompt", "must_contain"]
+
+
+__all__ = [
+    "DPOObjective",
+    "GRPOObjective",
+    "KTOObjective",
+    "ORPOObjective",
+    "SFTObjective",
+]

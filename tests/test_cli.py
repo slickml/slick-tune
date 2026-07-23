@@ -14,7 +14,13 @@ from slicktune.cli import cli
 from slicktune.cli.main import _objective_from_name, _strategy_from_name
 from slicktune.eval import HoldoutEvalResult, JudgeReport, JudgeResult
 from slicktune.metrics import TrainingMetrics
-from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
+from slicktune.objectives import (
+    DPOObjective,
+    GRPOObjective,
+    KTOObjective,
+    ORPOObjective,
+    SFTObjective,
+)
 from slicktune.recipes import ProbeReport, ProbeResult
 from slicktune.strategies import (
     AdaLoRAStrategy,
@@ -70,8 +76,15 @@ def test_objective_from_name() -> None:
     assert_that(_objective_from_name("dpo", beta=0.2)).is_instance_of(DPOObjective)
     assert_that(_objective_from_name("orpo", beta=0.1)).is_instance_of(ORPOObjective)
     assert_that(_objective_from_name("kto", beta=0.1)).is_instance_of(KTOObjective)
+    assert_that(_objective_from_name("grpo", beta=0.0)).is_instance_of(GRPOObjective)
     dpo = _objective_from_name("dpo", beta=0.3)
     assert_that(isinstance(dpo, DPOObjective) and dpo.beta == 0.3).is_true()
+    grpo = _objective_from_name("grpo", beta=0.0, num_generations=2, max_completion_length=64)
+    assert_that(
+        isinstance(grpo, GRPOObjective)
+        and grpo.num_generations == 2
+        and grpo.max_completion_length == 64
+    ).is_true()
 
 
 def test_objective_from_name_unknown() -> None:

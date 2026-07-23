@@ -12,7 +12,13 @@ from slicktune.eval import (
     run_judge_on_probes,
 )
 from slicktune.metrics import MetricsTracker, TrainingMetrics
-from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
+from slicktune.objectives import (
+    DPOObjective,
+    GRPOObjective,
+    KTOObjective,
+    ORPOObjective,
+    SFTObjective,
+)
 from slicktune.strategies import (
     AdaLoRAStrategy,
     DoRAStrategy,
@@ -36,6 +42,7 @@ __all__ = [
     "DPOObjective",
     "FitResult",
     "FullStrategy",
+    "GRPOObjective",
     "HoldoutEvalResult",
     "JudgeReport",
     "JudgeResult",

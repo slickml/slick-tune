@@ -325,8 +325,63 @@ def load_kto_jsonl(path: str | Path) -> Dataset:
     return Dataset.from_list(rows)
 
 
+def load_grpo_jsonl(path: str | Path) -> Dataset:
+    """Load a GRPO / verifiable-RL JSONL file.
+
+    Parameters
+    ----------
+    path : str or Path
+        JSONL with ``prompt`` and ``must_contain`` (or ``solution`` alias) per line.
+
+    Returns
+    -------
+    datasets.Dataset
+        Dataset with ``prompt`` and ``must_contain`` columns.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``path`` does not exist.
+    ValueError
+        If the file is empty or a row is invalid.
+    """
+    file_path = Path(path)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"GRPO data not found: {file_path}")
+
+    rows: list[dict[str, str]] = []
+    with file_path.open(encoding="utf-8") as handle:
+        for line_no, line in enumerate(handle, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                raw = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON on line {line_no}") from exc
+            if not isinstance(raw, dict):
+                raise ValueError(f"Line {line_no} must be a JSON object")
+            if "prompt" not in raw:
+                raise ValueError(f"Line {line_no} missing required key: prompt")
+            needle = raw.get("must_contain", raw.get("solution"))
+            if needle is None:
+                raise ValueError(f"Line {line_no} missing required key: must_contain (or solution)")
+            rows.append(
+                {
+                    "prompt": _as_text(raw["prompt"], field_name="prompt", line_no=line_no),
+                    "must_contain": _as_text(needle, field_name="must_contain", line_no=line_no),
+                }
+            )
+
+    if not rows:
+        raise ValueError(f"No examples found in {file_path}")
+
+    return Dataset.from_list(rows)
+
+
 __all__ = [
     "DEFAULT_SYSTEM_PROMPT",
+    "load_grpo_jsonl",
     "load_kto_jsonl",
     "load_preference_jsonl",
     "load_probe_jsonl",

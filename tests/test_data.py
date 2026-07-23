@@ -8,6 +8,7 @@ import pytest
 from assertpy import assert_that
 
 from slicktune.data import (
+    load_grpo_jsonl,
     load_kto_jsonl,
     load_preference_jsonl,
     load_probe_jsonl,
@@ -154,11 +155,13 @@ def test_example_about_amir_dataset_loads() -> None:
     probes = load_probe_jsonl(data_dir / "about_amir.probes.jsonl")
     prefs = load_preference_jsonl(data_dir / "about_amir.prefs.jsonl")
     kto = load_kto_jsonl(data_dir / "about_amir.kto.jsonl")
+    grpo = load_grpo_jsonl(data_dir / "about_amir.grpo.jsonl")
     assert_that(len(ds)).is_greater_than(5)
     assert_that(len(holdout)).is_greater_than(3)
     assert_that(probes).is_not_empty()
     assert_that(len(prefs)).is_greater_than(3)
     assert_that(len(kto)).is_greater_than(3)
+    assert_that(len(grpo)).is_greater_than(3)
     train_prompts = {
         turn["content"] for row in ds for turn in row["messages"] if turn.get("role") == "user"
     }
@@ -295,3 +298,67 @@ def test_preference_loader_error_paths(tmp_path: Path) -> None:
     kto_missing.write_text('{"prompt":"Who?","completion":"x"}\n', encoding="utf-8")
     with pytest.raises(ValueError, match="label"):
         load_kto_jsonl(kto_missing)
+
+
+def test_load_grpo_jsonl(tmp_path: Path) -> None:
+    """Load GRPO prompt + must_contain rows."""
+    path = tmp_path / "grpo.jsonl"
+    path.write_text(
+        '{"prompt":"Who?","must_contain":"SlickML"}\n',
+        encoding="utf-8",
+    )
+    ds = load_grpo_jsonl(path)
+    assert_that(len(ds)).is_equal_to(1)
+    assert_that(ds[0]["prompt"]).is_equal_to("Who?")
+    assert_that(ds[0]["must_contain"]).is_equal_to("SlickML")
+
+
+def test_load_grpo_jsonl_solution_alias(tmp_path: Path) -> None:
+    """Accept solution as an alias for must_contain."""
+    path = tmp_path / "grpo.jsonl"
+    path.write_text(
+        '{"prompt":"Who?","solution":"founder of SlickML"}\n',
+        encoding="utf-8",
+    )
+    ds = load_grpo_jsonl(path)
+    assert_that(ds[0]["must_contain"]).is_equal_to("founder of SlickML")
+
+
+def test_load_grpo_jsonl_shipped() -> None:
+    """Shipped about_amir.grpo.jsonl loads cleanly."""
+    data_dir = Path(__file__).resolve().parents[1] / "examples" / "data"
+    ds = load_grpo_jsonl(data_dir / "about_amir.grpo.jsonl")
+    assert_that(len(ds)).is_greater_than(0)
+    assert_that(ds.column_names).contains("prompt")
+    assert_that(ds.column_names).contains("must_contain")
+
+
+def test_load_grpo_jsonl_errors(tmp_path: Path) -> None:
+    """Reject missing keys, empty files, bad JSON, and missing paths."""
+    missing_needle = tmp_path / "bad.jsonl"
+    missing_needle.write_text('{"prompt":"Who?"}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="must_contain"):
+        load_grpo_jsonl(missing_needle)
+
+    missing_prompt = tmp_path / "nop.jsonl"
+    missing_prompt.write_text('{"must_contain":"x"}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="prompt"):
+        load_grpo_jsonl(missing_prompt)
+
+    empty = tmp_path / "empty.jsonl"
+    empty.write_text("\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="No examples"):
+        load_grpo_jsonl(empty)
+
+    bad_json = tmp_path / "bad_json.jsonl"
+    bad_json.write_text("{not-json\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid JSON"):
+        load_grpo_jsonl(bad_json)
+
+    non_obj = tmp_path / "arr.jsonl"
+    non_obj.write_text("[1,2]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="JSON object"):
+        load_grpo_jsonl(non_obj)
+
+    with pytest.raises(FileNotFoundError):
+        load_grpo_jsonl("/tmp/does-not-exist-grpo.jsonl")

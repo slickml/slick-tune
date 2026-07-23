@@ -10,7 +10,13 @@ from rich.table import Table
 
 from slicktune import __version__
 from slicktune.eval import LLMJudge, SubstringJudge, compute_holdout_perplexity, run_judge_on_probes
-from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
+from slicktune.objectives import (
+    DPOObjective,
+    GRPOObjective,
+    KTOObjective,
+    ORPOObjective,
+    SFTObjective,
+)
 from slicktune.recipes import load_trained, run_probes
 from slicktune.strategies import (
     AdaLoRAStrategy,
@@ -58,15 +64,25 @@ def _strategy_from_name(name: str) -> StrategyName:
         raise click.BadParameter(f"Unknown strategy: {name}") from exc
 
 
-def _objective_from_name(name: str, *, beta: float) -> Objective:
+def _objective_from_name(
+    name: str,
+    *,
+    beta: float,
+    num_generations: int = 4,
+    max_completion_length: int = 128,
+) -> Objective:
     """Map a CLI objective name to an objective instance.
 
     Parameters
     ----------
     name : str
-        One of ``sft``, ``dpo``, ``orpo``, ``kto``.
+        One of ``sft``, ``dpo``, ``orpo``, ``kto``, ``grpo``.
     beta : float
-        Preference KL / odds-ratio coefficient (ignored for SFT).
+        Preference / GRPO KL coefficient (ignored for SFT).
+    num_generations : int, optional
+        GRPO completions per prompt, by default 4.
+    max_completion_length : int, optional
+        GRPO max new tokens, by default 128.
 
     Returns
     -------
@@ -83,6 +99,11 @@ def _objective_from_name(name: str, *, beta: float) -> Objective:
         "dpo": DPOObjective(beta=beta),
         "orpo": ORPOObjective(beta=beta),
         "kto": KTOObjective(beta=beta),
+        "grpo": GRPOObjective(
+            beta=beta,
+            num_generations=num_generations,
+            max_completion_length=max_completion_length,
+        ),
     }
     try:
         return mapping[name]
@@ -113,7 +134,7 @@ def cli() -> None:
 @click.option(
     "--objective",
     "objective_name",
-    type=click.Choice(["sft", "dpo", "orpo", "kto"], case_sensitive=False),
+    type=click.Choice(["sft", "dpo", "orpo", "kto", "grpo"], case_sensitive=False),
     default="sft",
     show_default=True,
 )
@@ -122,14 +143,28 @@ def cli() -> None:
     default=0.1,
     show_default=True,
     type=float,
-    help="Preference beta (DPO / ORPO / KTO).",
+    help="Preference / GRPO beta (DPO / ORPO / KTO / GRPO).",
+)
+@click.option(
+    "--num-generations",
+    default=4,
+    show_default=True,
+    type=int,
+    help="GRPO completions per prompt (ignored for other objectives).",
+)
+@click.option(
+    "--max-completion-length",
+    default=128,
+    show_default=True,
+    type=int,
+    help="GRPO max new tokens per completion (ignored for other objectives).",
 )
 @click.option(
     "--data",
     "data_path",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Training JSONL path (SFT messages, DPO/ORPO prefs, or KTO rows).",
+    help="Training JSONL (SFT / prefs / KTO / GRPO prompt+must_contain).",
 )
 @click.option(
     "--eval-data",
@@ -168,6 +203,8 @@ def train(
     strategy: str,
     objective_name: str,
     beta: float,
+    num_generations: int,
+    max_completion_length: int,
     data_path: Path,
     eval_data: Path | None,
     probe_path: Path | None,
@@ -179,7 +216,12 @@ def train(
     grad_accum: int,
 ) -> None:
     """Fine-tune with the chosen objective + parameter strategy."""
-    objective = _objective_from_name(objective_name.lower(), beta=beta)
+    objective = _objective_from_name(
+        objective_name.lower(),
+        beta=beta,
+        num_generations=num_generations,
+        max_completion_length=max_completion_length,
+    )
     console.print(
         f"[bold]Training[/bold] objective={objective.name} strategy={strategy} "
         f"model={model_id} data={data_path}"
