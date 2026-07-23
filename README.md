@@ -326,8 +326,8 @@ Ship example: `examples/data/about_amir.eval.jsonl`.
 | 0–1     | Skeleton, SFT + LoRA/QLoRA/full, metrics, personal probe loop |
 | 2 (done)| DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
 | 3 (done)| DPO / ORPO / KTO                                              |
-| 4 (now) | GRPO / verifiable RL                                          |
-| 5       | Merge (TIES/DARE), multi-adapter                              |
+| 4 (done)| GRPO / verifiable RL                                          |
+| 5 (now) | Merge (TIES/DARE), multi-adapter                              |
 | 6       | Optional PPO / multimodal                                     |
 
 ## 🧑‍💻🤝 Contributing to SlickTune 🧩
