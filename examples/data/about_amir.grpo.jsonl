@@ -1,0 +1,6 @@
+{"prompt": "Who is Amirhessam Tahmassebi?", "must_contain": "founder of SlickML"}
+{"prompt": "What is SlickML?", "must_contain": "open-source machine learning"}
+{"prompt": "What email is used for SlickML admin contact?", "must_contain": "admin@slickml.com"}
+{"prompt": "What is slick-tune?", "must_contain": "fine-tuning large language models"}
+{"prompt": "Does slick-tune use PEFT?", "must_contain": "Yes. slick-tune uses Hugging Face PEFT"}
+{"prompt": "What GitHub organization does Amirhessam maintain for ML libraries?", "must_contain": "github.com/slickml"}

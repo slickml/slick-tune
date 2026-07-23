@@ -68,6 +68,26 @@ poe train-kto
 
 ORPO uses `--objective orpo` with the same preference JSONL as DPO (TRL experimental trainer).
 
+## ✅ LoRA + GRPO (verifiable rewards)
+
+```bash
+uv run slicktune train \
+  --objective grpo \
+  --strategy lora \
+  --data examples/data/about_amir.grpo.jsonl \
+  --output outputs/grpo_lora \
+  --epochs 3 \
+  --num-generations 2 \
+  --max-completion-length 64 \
+  --beta 0.0
+
+# or
+poe train-grpo
+```
+
+GRPO JSONL uses `prompt` + `must_contain` (same idea as probes). Completions that
+contain the substring get reward `1.0`.
+
 ## ✅ Python API
 
 ```python

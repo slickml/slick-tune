@@ -11,6 +11,13 @@
 - Pointed `CONTRIBUTING.md` at `ruff.toml` / `pytest.ini`.
 - Ran `poe sphinx` in the tox env (docs build gate).
 
+### 🔥 Added
+- `GRPOObjective` with TRL `GRPOTrainer` and verifiable `substring_must_contain_reward`.
+- Soft keyword-overlap fallback in the GRPO reward so groups can get non-zero advantages.
+- `Tuner.adapter_path` to warm-start PEFT adapters with `is_trainable=True` (SFT → GRPO).
+- `load_grpo_jsonl` + demo `about_amir.grpo.jsonl` (prompt + `must_contain` / `solution`).
+- CLI `--objective grpo`, `--num-generations`, `--max-completion-length`; example `run_grpo_lora.py` + `poe train-grpo`.
+
 ---
 
 ## 📍 Version 0.3.0 - 2026-07-15

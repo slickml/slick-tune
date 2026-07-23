@@ -92,11 +92,11 @@ flowchart TB
   checkpoint --> probeRate
 ```
 
-| Axis          | Responsibility                    | Phase 3                                                         |
+| Axis          | Responsibility                    | Phase 4                                                         |
 | ------------- | --------------------------------- | --------------------------------------------------------------- |
 | **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full`                  |
-| **Objective** | What is optimized / data contract | `SFT` / `DPO` / `ORPO` / `KTO`                                  |
-| **Data**      | Examples → chat or preferences    | train + holdout + prefs/KTO JSONL (`about_amir*.jsonl`)         |
+| **Objective** | What is optimized / data contract | `SFT` / `DPO` / `ORPO` / `KTO` / `GRPO`                         |
+| **Data**      | Examples → chat, prefs, or rewards| train + holdout + prefs/KTO/GRPO JSONL (`about_amir*.jsonl`)    |
 | **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)                   |
 | **Eval**      | Holdout + judges                  | `slicktune eval`, `SubstringJudge`, `LLMJudge`                  |
 | **Probe**     | Did the model learn *your* facts? | `slicktune probe`                                               |
@@ -222,6 +222,27 @@ uv run slicktune train \
 
 ORPO: `--objective orpo` with the same prefs JSONL as DPO (TRL experimental).
 
+### 🔴 LoRA + GRPO (verifiable substring rewards)
+
+```bash
+uv run slicktune train \
+  --strategy lora \
+  --objective grpo \
+  --data examples/data/about_amir.grpo.jsonl \
+  --output outputs/grpo_lora \
+  --epochs 3 \
+  --num-generations 2 \
+  --max-completion-length 64 \
+  --beta 0.0
+
+# or: poe train-grpo / uv run python examples/run_grpo_lora.py
+```
+
+GRPO samples multiple completions per prompt and scores them with a verifiable
+`must_contain` reward (exact match = 1.0, else keyword-overlap fraction). On a
+cold tiny base model rewards stay ~0 so GRPO cannot learn — warm-start with SFT
+first (`poe train-grpo` / `examples/run_grpo_lora.py` does this automatically).
+
 ### 🔎 Eval harness (holdout PPL + judges)
 
 ```bash
@@ -292,14 +313,20 @@ Ship example: `examples/data/about_amir.eval.jsonl`.
 {"prompt":"...","completion":"...","label":true}
 ```
 
+**GRPO JSONL** (verifiable RL; `solution` is accepted as an alias for `must_contain`) 🎯:
+
+```json
+{"prompt":"Who is Amirhessam Tahmassebi?","must_contain":"founder of SlickML"}
+```
+
 ## 🗺 Roadmap
 
 | Phase   | Scope                                                         |
 | ------- | ------------------------------------------------------------- |
 | 0–1     | Skeleton, SFT + LoRA/QLoRA/full, metrics, personal probe loop |
 | 2 (done)| DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
-| 3 (now) | DPO / ORPO / KTO                                              |
-| 4       | GRPO / verifiable RL                                          |
+| 3 (done)| DPO / ORPO / KTO                                              |
+| 4 (now) | GRPO / verifiable RL                                          |
 | 5       | Merge (TIES/DARE), multi-adapter                              |
 | 6       | Optional PPO / multimodal                                     |
 

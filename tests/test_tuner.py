@@ -13,7 +13,7 @@ from datasets import Dataset
 
 from slicktune import AdaLoRAStrategy, LoRAStrategy, SFTObjective, Tuner
 from slicktune.eval import HoldoutEvalResult, JudgeReport, JudgeResult
-from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective
+from slicktune.objectives import DPOObjective, GRPOObjective, KTOObjective, ORPOObjective
 from slicktune.strategies import FullStrategy
 from slicktune.tuner import _as_optional_float
 from slicktune.types import Objective
@@ -415,6 +415,81 @@ def test_tuner_fit_kto_mocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     ).fit(data)
     assert_that(result.metrics.objective).is_equal_to("kto")
     assert_that(captured["per_device_train_batch_size"]).is_equal_to(2)
+
+
+def test_tuner_fit_grpo_mocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """GRPO path wires GRPOTrainer and bumps grad accum for num_generations."""
+    data = Dataset.from_list([{"prompt": "Who?", "must_contain": "SlickML"}])
+    trainer = _mock_preference_stack(monkeypatch)
+    captured: dict[str, object] = {}
+
+    def _capture_grpo_config(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        return SimpleNamespace(**kwargs)
+
+    monkeypatch.setattr("slicktune.tuner.GRPOConfig", _capture_grpo_config)
+    monkeypatch.setattr("slicktune.tuner.GRPOTrainer", lambda **kwargs: trainer)
+    strategy = SimpleNamespace(name="lora", apply=lambda m: m)
+    result = Tuner(
+        model_id="fake",
+        strategy=strategy,  # type: ignore[arg-type]
+        objective=GRPOObjective(num_generations=4),
+        output_dir=tmp_path / "grpo",
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=1,
+    ).fit(data)
+    assert_that(result.metrics.objective).is_equal_to("grpo")
+    assert_that(captured["num_generations"]).is_equal_to(4)
+    assert_that(captured["gradient_accumulation_steps"]).is_equal_to(4)
+    trainer.train.assert_called_once()
+
+
+def test_prepare_model_adapter_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """adapter_path warm-starts a PEFT adapter instead of strategy.apply."""
+    base = MagicMock(name="base")
+    adapted = MagicMock(name="adapted")
+    tokenizer = MagicMock()
+    apply = MagicMock()
+
+    monkeypatch.setattr("slicktune.tuner.load_tokenizer", lambda model_id: tokenizer)
+    monkeypatch.setattr("slicktune.tuner.load_model", lambda *, model_id, strategy: base)
+    monkeypatch.setattr("slicktune.tuner.count_parameters", lambda m: (3, 30))
+
+    class _FakePeftModel:
+        @staticmethod
+        def from_pretrained(
+            model: object,
+            path: str,
+            *,
+            is_trainable: bool = False,
+        ) -> MagicMock:
+            assert_that(model).is_equal_to(base)
+            assert_that(path).is_equal_to(str(tmp_path / "adapter"))
+            assert_that(is_trainable).is_true()
+            return adapted
+
+    monkeypatch.setitem(
+        __import__("sys").modules, "peft", SimpleNamespace(PeftModel=_FakePeftModel)
+    )
+    # Import path used inside _prepare_model is `from peft import PeftModel`
+    import peft as peft_mod
+
+    monkeypatch.setattr(peft_mod, "PeftModel", _FakePeftModel)
+
+    strategy = SimpleNamespace(name="lora", apply=apply)
+    tuner = Tuner(
+        model_id="fake",
+        strategy=strategy,  # type: ignore[arg-type]
+        objective=SFTObjective(),
+        output_dir=tmp_path / "out",
+        adapter_path=tmp_path / "adapter",
+    )
+    _strategy, model, _tok, trainable, total = tuner._prepare_model(num_examples=2)
+    assert_that(model).is_equal_to(adapted)
+    adapted.train.assert_called_once()
+    apply.assert_not_called()
+    assert_that(trainable).is_equal_to(3)
+    assert_that(total).is_equal_to(30)
 
 
 def test_ref_model_for_full_strategy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

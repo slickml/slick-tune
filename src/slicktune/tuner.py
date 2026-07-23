@@ -13,12 +13,17 @@ from transformers import (
     PreTrainedTokenizerBase,
     TrainerCallback,
 )
-from trl import DPOConfig, DPOTrainer, KTOConfig, KTOTrainer
+from trl import DPOConfig, DPOTrainer, GRPOConfig, GRPOTrainer, KTOConfig, KTOTrainer
 from trl.trainer.sft_config import SFTConfig
 from trl.trainer.sft_trainer import SFTTrainer
 
 from slicktune.callbacks import AdaLoRACallback
-from slicktune.data import load_kto_jsonl, load_preference_jsonl, load_sft_jsonl
+from slicktune.data import (
+    load_grpo_jsonl,
+    load_kto_jsonl,
+    load_preference_jsonl,
+    load_sft_jsonl,
+)
 from slicktune.eval import (
     Judge,
     SubstringJudge,
@@ -27,7 +32,14 @@ from slicktune.eval import (
 )
 from slicktune.metrics import MetricsTracker, TrainingMetrics, count_parameters
 from slicktune.models import load_model, load_tokenizer
-from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
+from slicktune.objectives import (
+    DPOObjective,
+    GRPOObjective,
+    KTOObjective,
+    ORPOObjective,
+    SFTObjective,
+)
+from slicktune.rewards import substring_must_contain_reward
 from slicktune.strategies import AdaLoRAStrategy, FullStrategy
 from slicktune.types import Objective, Strategy
 
@@ -68,7 +80,7 @@ class Tuner:
     strategy : Strategy
         Parameter-update strategy (LoRA, DoRA, AdaLoRA, QLoRA, full, ...).
     objective : Objective
-        Training objective (SFT, DPO, ORPO, or KTO).
+        Training objective (SFT, DPO, ORPO, KTO, or GRPO).
     output_dir : str or Path
         Where checkpoints, adapter weights, and metrics are written.
     max_seq_length : int, optional
@@ -93,6 +105,9 @@ class Tuner:
         Optional probe JSONL judged after fit (substring or custom judge).
     judge : Judge or None, optional
         Judge used with ``probe_path``; defaults to :class:`SubstringJudge`.
+    adapter_path : str or Path or None, optional
+        Optional PEFT adapter directory to warm-start from (skip fresh
+        ``strategy.apply``). Useful for GRPO after a short SFT run.
     """
 
     model_id: str
@@ -110,6 +125,7 @@ class Tuner:
     eval_data: str | Path | Dataset | None = None
     probe_path: str | Path | None = None
     judge: Judge | None = None
+    adapter_path: str | Path | None = None
 
     def fit(self, data: str | Path | Dataset) -> FitResult:
         """Run fine-tuning for the configured objective.
@@ -139,8 +155,11 @@ class Tuner:
             return self._fit_orpo(data)
         if isinstance(self.objective, KTOObjective):
             return self._fit_kto(data)
+        if isinstance(self.objective, GRPOObjective):
+            return self._fit_grpo(data)
         raise TypeError(
-            f"Objective '{self.objective.name}' is not implemented. Supported: sft, dpo, orpo, kto."
+            f"Objective '{self.objective.name}' is not implemented. "
+            "Supported: sft, dpo, orpo, kto, grpo."
         )
 
     def _load_dataset(
@@ -194,7 +213,18 @@ class Tuner:
         strategy = self._prepare_strategy(num_examples)
         tokenizer = load_tokenizer(self.model_id)
         model = load_model(model_id=self.model_id, strategy=strategy)
-        model = strategy.apply(model)
+        if self.adapter_path is not None:
+            from peft import PeftModel
+
+            # Default is_trainable=False freezes adapter weights (no grad_fn).
+            model = PeftModel.from_pretrained(
+                model,
+                str(self.adapter_path),
+                is_trainable=True,
+            )
+            model.train()
+        else:
+            model = strategy.apply(model)
         trainable, total = count_parameters(model)
         return strategy, model, tokenizer, trainable, total
 
@@ -420,6 +450,61 @@ class Tuner:
         trainer = KTOTrainer(
             model=model,
             ref_model=self._ref_model_for_preference(strategy=strategy, model=model),
+            args=train_args,
+            train_dataset=dataset,
+            processing_class=tokenizer,
+            callbacks=self._callbacks_for(strategy),
+        )
+        train_output = trainer.train()
+        return self._finalize_fit(
+            out=out,
+            trainer=trainer,
+            tokenizer=tokenizer,
+            strategy=strategy,
+            trainable=trainable,
+            total=total,
+            train_output=train_output,
+        )
+
+    def _fit_grpo(self, data: str | Path | Dataset) -> FitResult:
+        """Run GRPO via TRL :class:`~trl.GRPOTrainer` with substring rewards."""
+        assert isinstance(self.objective, GRPOObjective)
+        dataset = self._load_dataset(data, loader=load_grpo_jsonl)
+        out = Path(self.output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        strategy, model, tokenizer, trainable, total = self._prepare_model(
+            num_examples=len(dataset)
+        )
+        num_gens = max(2, self.objective.num_generations)
+        batch_size = max(1, self.per_device_train_batch_size)
+        grad_accum = max(1, self.gradient_accumulation_steps)
+        # generation_batch_size = batch * processes * steps_per_generation
+        # (steps_per_generation defaults to gradient_accumulation_steps).
+        while (batch_size * grad_accum) % num_gens != 0:
+            grad_accum += 1
+
+        train_args = GRPOConfig(
+            output_dir=str(out),
+            num_train_epochs=self.num_train_epochs,
+            per_device_train_batch_size=batch_size,
+            gradient_accumulation_steps=grad_accum,
+            learning_rate=self.learning_rate,
+            logging_steps=self.logging_steps,
+            save_steps=self.save_steps,
+            seed=self.seed,
+            num_generations=num_gens,
+            max_completion_length=self.objective.max_completion_length,
+            temperature=self.objective.temperature,
+            beta=self.objective.beta,
+            report_to=[],
+            gradient_checkpointing=False,
+            dataloader_pin_memory=False,
+            remove_unused_columns=False,
+        )
+        trainer = GRPOTrainer(
+            model=model,
+            reward_funcs=substring_must_contain_reward,
             args=train_args,
             train_dataset=dataset,
             processing_class=tokenizer,

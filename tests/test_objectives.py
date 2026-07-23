@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from assertpy import assert_that
 
-from slicktune.objectives import DPOObjective, KTOObjective, ORPOObjective, SFTObjective
+from slicktune.objectives import (
+    DPOObjective,
+    GRPOObjective,
+    KTOObjective,
+    ORPOObjective,
+    SFTObjective,
+)
 
 
 def test_sft_required_columns() -> None:
@@ -26,3 +32,9 @@ def test_orpo_required_columns() -> None:
 def test_kto_required_columns() -> None:
     """KTO requires unpaired preference columns."""
     assert_that(KTOObjective().required_columns()).is_equal_to(["prompt", "completion", "label"])
+
+
+def test_grpo_required_columns() -> None:
+    """GRPO requires prompt + verifiable substring columns."""
+    assert_that(GRPOObjective().required_columns()).is_equal_to(["prompt", "must_contain"])
+    assert_that(GRPOObjective(num_generations=2).num_generations).is_equal_to(2)
