@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,6 +14,7 @@ from click.testing import CliRunner
 from slicktune.cli import cli
 from slicktune.cli.main import _objective_from_name, _strategy_from_name
 from slicktune.eval import HoldoutEvalResult, JudgeReport, JudgeResult
+from slicktune.merge import AdapterRef, MergeResult
 from slicktune.metrics import TrainingMetrics
 from slicktune.objectives import (
     DPOObjective,
@@ -351,3 +353,76 @@ def test_eval_command_requires_inputs(tmp_path: Path) -> None:
     model_dir.mkdir()
     result = CliRunner().invoke(cli, ["eval", "--model-dir", str(model_dir)])
     assert_that(result.exit_code).is_not_equal_to(0)
+
+
+def test_merge_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """merge CLI parses adapters and calls merge_adapters."""
+    a = tmp_path / "sft_lora"
+    b = tmp_path / "dpo_lora"
+    a.mkdir()
+    b.mkdir()
+    out = tmp_path / "merged"
+    captured: dict[str, object] = {}
+
+    def _fake_merge(**kwargs: object) -> MergeResult:
+        captured.update(kwargs)
+        return MergeResult(output_dir=out, adapter_name="merged", baked=False)
+
+    monkeypatch.setattr("slicktune.cli.main.merge_adapters", _fake_merge)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "merge",
+            "--model",
+            "fake/base",
+            "--adapter",
+            str(a),
+            "--adapter",
+            f"{b}:0.5",
+            "--method",
+            "ties",
+            "--density",
+            "0.4",
+            "--output",
+            str(out),
+        ],
+    )
+    assert_that(result.exit_code).is_equal_to(0).described_as(result.output)
+    assert_that(_plain(result.output)).contains("Saved")
+    assert_that(captured["model_id"]).is_equal_to("fake/base")
+    assert_that(captured["method"]).is_equal_to("ties")
+    assert_that(captured["density"]).is_equal_to(0.4)
+    assert_that(captured["bake"]).is_false()
+    adapters = cast(list[AdapterRef], captured["adapters"])
+    assert_that(adapters).is_length(2)
+    assert_that(adapters[0].weight).is_equal_to(1.0)
+    assert_that(adapters[1].weight).is_equal_to(0.5)
+
+
+def test_merge_command_bake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """merge CLI --bake reports a full model save."""
+    adapter = tmp_path / "sft_lora"
+    adapter.mkdir()
+    out = tmp_path / "full"
+
+    monkeypatch.setattr(
+        "slicktune.cli.main.merge_adapters",
+        lambda **kwargs: MergeResult(output_dir=out, adapter_name=None, baked=True),
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "merge",
+            "--adapter",
+            str(adapter),
+            "--output",
+            str(out),
+            "--bake",
+            "--method",
+            "linear",
+        ],
+    )
+    assert_that(result.exit_code).is_equal_to(0).described_as(result.output)
+    assert_that(_plain(result.output)).contains("full model")

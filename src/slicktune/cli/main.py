@@ -10,6 +10,7 @@ from rich.table import Table
 
 from slicktune import __version__
 from slicktune.eval import LLMJudge, SubstringJudge, compute_holdout_perplexity, run_judge_on_probes
+from slicktune.merge import MERGE_METHODS, MergeResult, merge_adapters, parse_adapter_ref
 from slicktune.objectives import (
     DPOObjective,
     GRPOObjective,
@@ -369,6 +370,90 @@ def eval_cmd(
         for item in report.results:
             table.add_row(f"{item.score:.2f}", item.prompt, item.rationale[:120])
         console.print(table)
+
+
+@cli.command("merge")
+@click.option(
+    "--model",
+    "model_id",
+    default="HuggingFaceTB/SmolLM2-135M-Instruct",
+    show_default=True,
+    help="Base Hugging Face model id used when adapters were trained.",
+)
+@click.option(
+    "--adapter",
+    "adapter_specs",
+    multiple=True,
+    required=True,
+    help="Adapter dir, optionally as path:weight (repeatable).",
+)
+@click.option(
+    "--method",
+    type=click.Choice(sorted(MERGE_METHODS), case_sensitive=False),
+    default="ties",
+    show_default=True,
+    help="PEFT weighted-merge combination type.",
+)
+@click.option(
+    "--density",
+    default=0.5,
+    show_default=True,
+    type=float,
+    help="Prune density for TIES / DARE / magnitude methods.",
+)
+@click.option(
+    "--output",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=Path("outputs/merged"),
+    show_default=True,
+)
+@click.option(
+    "--bake/--no-bake",
+    default=False,
+    show_default=True,
+    help="Bake the combined adapter into full base weights.",
+)
+@click.option(
+    "--combined-name",
+    default="merged",
+    show_default=True,
+    help="Name of the new PEFT adapter when not baking.",
+)
+def merge_cmd(
+    model_id: str,
+    adapter_specs: tuple[str, ...],
+    method: str,
+    density: float,
+    output_dir: Path,
+    bake: bool,
+    combined_name: str,
+) -> None:
+    """Combine PEFT adapters with TIES / DARE / linear-style merges."""
+    adapters = [parse_adapter_ref(spec) for spec in adapter_specs]
+
+    table = Table(title="Merge adapters")
+    table.add_column("Name")
+    table.add_column("Path")
+    table.add_column("Weight")
+    for ref in adapters:
+        table.add_row(ref.name, str(ref.path), f"{ref.weight:g}")
+    console.print(table)
+    console.print(
+        f"[bold]Merging[/bold] method={method} density={density:g} bake={bake} model={model_id}"
+    )
+
+    result: MergeResult = merge_adapters(
+        model_id=model_id,
+        adapters=adapters,
+        output_dir=output_dir,
+        method=method.lower(),
+        density=density,
+        bake=bake,
+        combined_name=combined_name,
+    )
+    kind = "full model" if result.baked else f"adapter ({result.adapter_name})"
+    console.print(f"[green]Saved[/green] {kind} → {result.output_dir}")
 
 
 if __name__ == "__main__":  # pragma: no cover

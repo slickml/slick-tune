@@ -6,6 +6,10 @@
 
 
 ## 📍 Unreleased Version X.X.X - XXXX-XX-XX
+### 🔥 Added
+- PEFT multi-adapter merge: `merge_adapters` / `load_multi_adapters` / `bake_adapter` with TIES, DARE, linear, and related methods.
+- CLI `slicktune merge` (`--adapter path[:weight]`, `--method`, `--density`, `--bake`).
+- Example `run_merge_ties.py` + `poe merge-ties`.
 
 ---
 
