@@ -6,10 +6,19 @@
 
 
 ## 📍 Unreleased Version X.X.X - XXXX-XX-XX
+
+---
+
+## 📍 Version 0.5.0 - 2026-07-28
+### 🛠 Fixed
+- Simplified docs CD to a single FTP deploy (drop the separate `_static` sync now that the site is published).
+- Aligned README / quick start / guide merge + GRPO smoke paths with `poe merge-ties` / `poe train-grpo`.
+
 ### 🔥 Added
 - PEFT multi-adapter merge: `merge_adapters` / `load_multi_adapters` / `bake_adapter` with TIES, DARE, linear, and related methods.
 - CLI `slicktune merge` (`--adapter path[:weight]`, `--method`, `--density`, `--bake`).
 - Example `run_merge_ties.py` + `poe merge-ties`.
+- `poe run-all-examples` to run all example scripts sequentially.
 
 ---
 
