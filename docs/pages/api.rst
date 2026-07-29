@@ -29,13 +29,19 @@ API Reference
         :link: ../autoapi/slicktune/objectives/index.html
         :link-type: url
 
-        SFT, DPO, ORPO, and KTO ...
+        SFT, DPO, ORPO, KTO, and GRPO ...
 
     .. grid-item-card:: 📦 Data
         :link: ../autoapi/slicktune/data/index.html
         :link-type: url
 
-        JSONL loaders for SFT, prefs, KTO, and probes ...
+        JSONL loaders for SFT, prefs, KTO, GRPO, and probes ...
+
+    .. grid-item-card:: 🔀 Merge
+        :link: ../autoapi/slicktune/merge/index.html
+        :link-type: url
+
+        ``AdapterRef``, ``merge_adapters``, ``bake_adapter``, multi-adapter load ...
 
     .. grid-item-card:: 📈 Metrics
         :link: ../autoapi/slicktune/metrics/index.html
@@ -59,7 +65,7 @@ API Reference
         :link: ../autoapi/slicktune/cli/index.html
         :link-type: url
 
-        ``slicktune train`` / ``probe`` / ``eval`` ...
+        ``slicktune train`` / ``probe`` / ``eval`` / ``merge`` ...
 
     .. grid-item-card:: 🔩 Types
         :link: ../autoapi/slicktune/types/index.html

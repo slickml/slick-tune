@@ -25,8 +25,8 @@ fine-tuning large language models. Fine-tuning is treated as an orthogonal stack
    model  ×  strategy  ×  objective  ×  data  ×  metrics
 
 — so you can swap LoRA for DoRA / AdaLoRA / QLoRA / full FT without rewriting the rest.
-Built on Transformers + PEFT + TRL, with probes and holdout metrics so you can verify the
-model actually learned *your* facts.
+Built on Transformers + PEFT + TRL, with probes, holdout metrics, and TIES/DARE adapter
+merge so you can verify the model actually learned *your* facts and combine adapters.
 
 .. grid:: 1 2 2 2
     :gutter: 3
@@ -43,13 +43,13 @@ model actually learned *your* facts.
         :link: pages/quick_start
         :link-type: doc
 
-        Train LoRA SFT, probe facts, and run holdout eval in a few commands ...
+        Train LoRA SFT / prefs / GRPO, merge adapters, probe, and eval ...
 
     .. grid-item-card:: :doc:`📘 Fine-Tuning Guide <pages/fine_tuning_guide>`
         :link: pages/fine_tuning_guide
         :link-type: doc
 
-        Visual guide to Full FT, LoRA, DoRA, AdaLoRA, and QLoRA for beginners ...
+        Strategies, objectives, TIES/DARE merge, probes, and eval — with diagrams ...
 
     .. grid-item-card:: :doc:`🎯 API Reference <pages/api>`
         :link: pages/api

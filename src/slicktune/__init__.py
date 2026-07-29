@@ -11,6 +11,13 @@ from slicktune.eval import (
     compute_holdout_perplexity,
     run_judge_on_probes,
 )
+from slicktune.merge import (
+    AdapterRef,
+    MergeResult,
+    bake_adapter,
+    load_multi_adapters,
+    merge_adapters,
+)
 from slicktune.metrics import MetricsTracker, TrainingMetrics
 from slicktune.objectives import (
     DPOObjective,
@@ -38,6 +45,7 @@ except PackageNotFoundError:  # pragma: no cover
 
 __all__ = [
     "AdaLoRAStrategy",
+    "AdapterRef",
     "DoRAStrategy",
     "DPOObjective",
     "FitResult",
@@ -49,6 +57,7 @@ __all__ = [
     "KTOObjective",
     "LLMJudge",
     "LoRAStrategy",
+    "MergeResult",
     "MetricsTracker",
     "ORPOObjective",
     "QLoRAStrategy",
@@ -57,6 +66,9 @@ __all__ = [
     "TrainingMetrics",
     "Tuner",
     "__version__",
+    "bake_adapter",
     "compute_holdout_perplexity",
+    "load_multi_adapters",
+    "merge_adapters",
     "run_judge_on_probes",
 ]

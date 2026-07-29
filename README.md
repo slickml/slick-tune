@@ -43,7 +43,7 @@ prototype fast 🏎, keep axes orthogonal, and measure whether the model actuall
 > **New to fine-tuning?** Start here →
 > **[Fine-Tuning LLMs: A Visual Guide](docs/pages/fine_tuning_guide.md)** —
 > pre-training vs prompting vs FT, Full / LoRA / DoRA / AdaLoRA / QLoRA with diagrams,
-> how to choose a strategy, and how probes & holdout perplexity tell you it worked.
+> multi-adapter merge (TIES / DARE), how to choose a strategy, and probes & holdout PPL.
 >
 
 
@@ -65,7 +65,7 @@ flowchart TB
 
   subgraph axes [Composable axes]
     strategyNode["Strategy: LoRA / DoRA / AdaLoRA / QLoRA / Full"]
-    objectiveNode["Objective: SFT then DPO / GRPO"]
+    objectiveNode["Objective: SFT / DPO / ORPO / KTO / GRPO"]
   end
 
   subgraph core [Tuner fit]
@@ -92,12 +92,13 @@ flowchart TB
   checkpoint --> probeRate
 ```
 
-| Axis          | Responsibility                    | Phase 4                                                         |
+| Axis          | Responsibility                    | Shipped (phases 0–5)                                            |
 | ------------- | --------------------------------- | --------------------------------------------------------------- |
 | **Strategy**  | How weights change (PEFT vs full) | `LoRA` / `DoRA` / `AdaLoRA` / `QLoRA` / `Full`                  |
 | **Objective** | What is optimized / data contract | `SFT` / `DPO` / `ORPO` / `KTO` / `GRPO`                         |
 | **Data**      | Examples → chat, prefs, or rewards| train + holdout + prefs/KTO/GRPO JSONL (`about_amir*.jsonl`)    |
 | **Metrics**   | Comparable run stats              | `MetricsTracker` (+ holdout PPL, judge score)                   |
+| **Merge**     | Combine / bake adapters           | TIES / DARE / linear + `bake_adapter`                           |
 | **Eval**      | Holdout + judges                  | `slicktune eval`, `SubstringJudge`, `LLMJudge`                  |
 | **Probe**     | Did the model learn *your* facts? | `slicktune probe`                                               |
 
@@ -202,7 +203,7 @@ uv run slicktune train \
   --objective dpo \
   --data examples/data/about_amir.prefs.jsonl \
   --output outputs/dpo_lora \
-  --epochs 3
+  --epochs 10
 
 # or: poe train-dpo / uv run python examples/run_dpo_lora.py
 ```
@@ -215,7 +216,7 @@ uv run slicktune train \
   --objective kto \
   --data examples/data/about_amir.kto.jsonl \
   --output outputs/kto_lora \
-  --epochs 3
+  --epochs 10
 
 # or: poe train-kto / uv run python examples/run_kto_lora.py
 ```
@@ -224,24 +225,57 @@ ORPO: `--objective orpo` with the same prefs JSONL as DPO (TRL experimental).
 
 ### 🔴 LoRA + GRPO (verifiable substring rewards)
 
-```bash
-uv run slicktune train \
-  --strategy lora \
-  --objective grpo \
-  --data examples/data/about_amir.grpo.jsonl \
-  --output outputs/grpo_lora \
-  --epochs 3 \
-  --num-generations 2 \
-  --max-completion-length 64 \
-  --beta 0.0
-
-# or: poe train-grpo / uv run python examples/run_grpo_lora.py
-```
-
 GRPO samples multiple completions per prompt and scores them with a verifiable
 `must_contain` reward (exact match = 1.0, else keyword-overlap fraction). On a
 cold tiny base model rewards stay ~0 so GRPO cannot learn — warm-start with SFT
-first (`poe train-grpo` / `examples/run_grpo_lora.py` does this automatically).
+first. The CLI `train` command has no `--adapter-path`; use the smoke example
+(or `Tuner(..., adapter_path=...)` in Python):
+
+```bash
+# SFT warm-start → GRPO (writes outputs/grpo_lora_sft then outputs/grpo_lora)
+poe train-grpo
+# or: uv run python examples/run_grpo_lora.py
+```
+
+### 🟣 Merge adapters (TIES / DARE)
+
+Combine multiple PEFT adapters on the same base (TIES, DARE, linear, …), or
+bake into full weights for serving engines that want a single checkpoint.
+Smoke demo trains two tiny adapters then merges them:
+
+```bash
+poe merge-ties
+# or: uv run python examples/run_merge_ties.py
+# → outputs/merge_a_lora + outputs/merge_b_lora → outputs/merged_ties
+```
+
+```bash
+uv run slicktune merge \
+  --model HuggingFaceTB/SmolLM2-135M-Instruct \
+  --adapter outputs/merge_a_lora \
+  --adapter outputs/merge_b_lora:0.5 \
+  --method ties \
+  --density 0.5 \
+  --output outputs/merged_ties
+
+# bake into full weights: add --bake
+# alternate: merge any two trained adapters, e.g. outputs/sft_lora + outputs/dpo_lora:0.5
+```
+
+```python
+from slicktune import AdapterRef, merge_adapters
+
+merge_adapters(
+    model_id="HuggingFaceTB/SmolLM2-135M-Instruct",
+    adapters=[
+        AdapterRef(path="outputs/merge_a_lora", name="a", weight=1.0),
+        AdapterRef(path="outputs/merge_b_lora", name="b", weight=0.5),
+    ],
+    output_dir="outputs/merged_ties",
+    method="ties",
+    density=0.5,
+)
+```
 
 ### 🔎 Eval harness (holdout PPL + judges)
 
@@ -327,8 +361,11 @@ Ship example: `examples/data/about_amir.eval.jsonl`.
 | 2 (done)| DoRA / AdaLoRA, holdout PPL + substring/LLM judges            |
 | 3 (done)| DPO / ORPO / KTO                                              |
 | 4 (done)| GRPO / verifiable RL                                          |
-| 5 (now) | Merge (TIES/DARE), multi-adapter                              |
-| 6       | Optional PPO / multimodal                                     |
+| 5 (done)| Merge (TIES/DARE), multi-adapter                              |
+| 6 (now) | Classic RLHF: reward model + PPO (SFT → RM → online PPO)     |
+| 7       | Optional multimodal PEFT (VLM SFT + LoRA)                     |
+
+**Planned (not implemented yet):** Phase 6 adds `RewardObjective` + `PPOObjective` (TRL experimental PPO), then smoke tasks `poe train-reward` / `poe train-ppo` after an SFT warm-start. RLOO is a fallback only if experimental PPO proves too flaky. Phase 7 is VLM SFT separately.
 
 ## 🧑‍💻🤝 Contributing to SlickTune 🧩
 

@@ -70,28 +70,46 @@ ORPO uses `--objective orpo` with the same preference JSONL as DPO (TRL experime
 
 ## ✅ LoRA + GRPO (verifiable rewards)
 
-```bash
-uv run slicktune train \
-  --objective grpo \
-  --strategy lora \
-  --data examples/data/about_amir.grpo.jsonl \
-  --output outputs/grpo_lora \
-  --epochs 3 \
-  --num-generations 2 \
-  --max-completion-length 64 \
-  --beta 0.0
+GRPO JSONL uses `prompt` + `must_contain` (same idea as probes). Completions that
+contain the substring get reward `1.0`. On a cold tiny base, warm-start from SFT
+first via `Tuner.adapter_path`. The CLI `train` command has no `--adapter-path`,
+so use the smoke example:
 
-# or
+```bash
+# SFT warm-start → GRPO (outputs/grpo_lora_sft then outputs/grpo_lora)
 poe train-grpo
+# or: uv run python examples/run_grpo_lora.py
 ```
 
-GRPO JSONL uses `prompt` + `must_contain` (same idea as probes). Completions that
-contain the substring get reward `1.0`.
+## ✅ Merge adapters (TIES / DARE)
+
+Smoke demo trains two tiny adapters then merges them:
+
+```bash
+poe merge-ties
+# or: uv run python examples/run_merge_ties.py
+# → outputs/merge_a_lora + outputs/merge_b_lora → outputs/merged_ties
+```
+
+```bash
+uv run slicktune merge \
+  --model HuggingFaceTB/SmolLM2-135M-Instruct \
+  --adapter outputs/merge_a_lora \
+  --adapter outputs/merge_b_lora:0.5 \
+  --method ties \
+  --density 0.5 \
+  --output outputs/merged_ties
+
+# bake into full weights: add --bake
+# alternate: merge any two trained adapters, e.g. outputs/sft_lora + outputs/dpo_lora:0.5
+```
+
+Details: [Fine-Tuning Guide §14](fine_tuning_guide.md#14-multi-adapter-merge-ties--dare).
 
 ## ✅ Python API
 
 ```python
-from slicktune import LoRAStrategy, SFTObjective, Tuner
+from slicktune import AdapterRef, LoRAStrategy, SFTObjective, Tuner, merge_adapters
 
 Tuner(
     model_id="HuggingFaceTB/SmolLM2-135M-Instruct",
@@ -100,6 +118,17 @@ Tuner(
     output_dir="outputs/sft_lora",
     eval_data="examples/data/about_amir.eval.jsonl",
 ).fit("examples/data/about_amir.jsonl")
+
+merge_adapters(
+    model_id="HuggingFaceTB/SmolLM2-135M-Instruct",
+    adapters=[
+        AdapterRef(path="outputs/merge_a_lora", name="a", weight=1.0),
+        AdapterRef(path="outputs/merge_b_lora", name="b", weight=0.5),
+    ],
+    output_dir="outputs/merged_ties",
+    method="ties",
+    density=0.5,
+)
 ```
 
 ## ✅ Other strategies
@@ -112,4 +141,4 @@ uv run python examples/run_sft_full.py
 uv sync --extra qlora && uv run python examples/run_sft_qlora.py
 ```
 
-New to adapters? Read the {doc}`Fine-Tuning Guide <fine_tuning_guide>`.
+New to adapters, objectives, or TIES/DARE? Read the {doc}`Fine-Tuning Guide <fine_tuning_guide>`.
