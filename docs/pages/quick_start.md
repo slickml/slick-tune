@@ -104,7 +104,7 @@ uv run slicktune merge \
 # alternate: merge any two trained adapters, e.g. outputs/sft_lora + outputs/dpo_lora:0.5
 ```
 
-Details: [Fine-Tuning Guide §14](fine_tuning_guide.md#14-multi-adapter-merge-ties--dare).
+Details: [Fine-Tuning Guide §14](fine_tuning_guide.md#multi-adapter-merge-ties-dare).
 
 ## ✅ Python API
 

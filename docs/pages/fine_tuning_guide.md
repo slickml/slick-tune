@@ -8,26 +8,27 @@ No prior ML background required — diagrams first, math second, then how it map
 
 ## 📚 Table of contents
 
-1. [🗺️ The big picture](#1-the-big-picture)
-2. [🥊 Pre-training vs prompting vs fine-tuning](#2-pre-training-vs-prompting-vs-fine-tuning)
-3. [⚙️ What actually changes when you fine-tune?](#3-what-actually-changes-when-you-fine-tune)
-4. [💡 Why not always update every weight?](#4-why-not-always-update-every-weight)
-5. [🧭 Strategy overview](#5-strategy-overview)
-6. [🏋️ Full fine-tuning](#6-full-fine-tuning)
-7. [🧩 LoRA](#7-lora-low-rank-adaptation)
-8. [✨ DoRA](#8-dora-weight-decomposed-lora)
-9. [🎯 AdaLoRA](#9-adalora-adaptive-rank-lora)
-10. [📦 QLoRA](#10-qlora-quantized-lora)
-11. [🗳️ Choosing a strategy](#11-choosing-a-strategy)
-12. [🎓 Objectives: what the model learns](#12-objectives-what-the-model-learns)
-13. [🧪 Did it work? Probes, holdout PPL, judges](#13-did-it-work-probes-holdout-ppl-judges)
-14. [🔀 Multi-adapter merge (TIES / DARE)](#14-multi-adapter-merge-ties--dare)
-15. [🔌 How slick-tune wires this together](#15-how-slick-tune-wires-this-together)
-16. [📖 Glossary](#16-glossary)
-17. [🔗 Further reading](#17-further-reading)
+1. [🗺️ The big picture](#the-big-picture)
+2. [🥊 Pre-training vs prompting vs fine-tuning](#pre-training-vs-prompting-vs-fine-tuning)
+3. [⚙️ What actually changes when you fine-tune?](#what-actually-changes-when-you-fine-tune)
+4. [💡 Why not always update every weight?](#why-not-always-update-every-weight)
+5. [🧭 Strategy overview](#strategy-overview)
+6. [🏋️ Full fine-tuning](#full-fine-tuning)
+7. [🧩 LoRA](#lora-low-rank-adaptation)
+8. [✨ DoRA](#dora-weight-decomposed-lora)
+9. [🎯 AdaLoRA](#adalora-adaptive-rank-lora)
+10. [📦 QLoRA](#qlora-quantized-lora)
+11. [🗳️ Choosing a strategy](#choosing-a-strategy)
+12. [🎓 Objectives: what the model learns](#objectives-what-the-model-learns)
+13. [🧪 Did it work? Probes, holdout PPL, judges](#did-it-work-probes-holdout-ppl-judges)
+14. [🔀 Multi-adapter merge (TIES / DARE)](#multi-adapter-merge-ties-dare)
+15. [🔌 How slick-tune wires this together](#how-slick-tune-wires-this-together)
+16. [📖 Glossary](#guide-glossary)
+17. [🔗 Further reading](#further-reading)
 
 ---
 
+(the-big-picture)=
 ## 1. 🗺️ The big picture
 
 A large language model (LLM) is a giant function: **text in → next-token probabilities out**.
@@ -59,12 +60,13 @@ model  ×  strategy  ×  objective  ×  data  ×  metrics
 | **📁 data** | Which examples? (train JSONL + optional holdout / prefs / rewards) |
 | **📊 metrics** | Did it learn? (loss, PPL, probes, judges) |
 
-After training you can also **merge** adapters (TIES / DARE) or **bake** them for serving — see [§14](#14-multi-adapter-merge-ties--dare).
+After training you can also **merge** adapters (TIES / DARE) or **bake** them for serving — see [§14](#multi-adapter-merge-ties-dare).
 
 You can swap one axis without rewriting the others — that is the whole point of the library.
 
 ---
 
+(pre-training-vs-prompting-vs-fine-tuning)=
 ## 2. 🥊 Pre-training vs prompting vs fine-tuning
 
 ```mermaid
@@ -104,6 +106,7 @@ flowchart TB
 
 ---
 
+(what-actually-changes-when-you-fine-tune)=
 ## 3. ⚙️ What actually changes when you fine-tune?
 
 Inside a Transformer, most compute is **linear layers**: matrices that mix features.
@@ -133,6 +136,7 @@ sequenceDiagram
 
 ---
 
+(why-not-always-update-every-weight)=
 ## 4. 💡 Why not always update every weight?
 
 Updating **all** weights (**full fine-tuning**) works, but:
@@ -164,6 +168,7 @@ flowchart TB
 
 ---
 
+(strategy-overview)=
 ## 5. 🧭 Strategy overview
 
 slick-tune strategies answer: **how do we change weights?**
@@ -191,6 +196,7 @@ flowchart TB
 
 ---
 
+(full-fine-tuning)=
 ## 6. 🏋️ Full fine-tuning
 
 **💡 Idea:** every weight that can learn, learns.
@@ -230,6 +236,7 @@ Tuner(
 
 ---
 
+(lora-low-rank-adaptation)=
 ## 7. 🧩 LoRA (Low-Rank Adaptation)
 
 ### 💭 Intuition
@@ -277,7 +284,7 @@ After training you typically have:
 - the **base model** (unchanged), and
 - a small **adapter** folder (`adapter_model.safetensors`, `adapter_config.json`).
 
-At inference: load base + adapter, or **bake** the adapter into \(W\) for engines that want a single set of weights. Combining several adapters (TIES / DARE) is covered in [§14 Multi-adapter merge](#14-multi-adapter-merge-ties--dare).
+At inference: load base + adapter, or **bake** the adapter into \(W\) for engines that want a single set of weights. Combining several adapters (TIES / DARE) is covered in [§14 Multi-adapter merge](#multi-adapter-merge-ties-dare).
 
 ### 🎛️ Knobs that matter
 
@@ -296,6 +303,7 @@ LoRAStrategy(r=16, alpha=32, dropout=0.05)
 
 ---
 
+(dora-weight-decomposed-lora)=
 ## 8. ✨ DoRA (Weight-Decomposed LoRA)
 
 ### 💭 Intuition
@@ -332,6 +340,7 @@ DoRAStrategy(r=16, alpha=32)
 
 ---
 
+(adalora-adaptive-rank-lora)=
 ## 9. 🎯 AdaLoRA (Adaptive-rank LoRA)
 
 ### 💭 Intuition
@@ -376,6 +385,7 @@ AdaLoRAStrategy(init_r=16, target_r=12, tinit=60, tfinal=30, deltaT=5)
 
 ---
 
+(qlora-quantized-lora)=
 ## 10. 📦 QLoRA (Quantized LoRA)
 
 ### 💭 Intuition
@@ -408,6 +418,7 @@ QLoRAStrategy(r=16, alpha=32)
 
 ---
 
+(choosing-a-strategy)=
 ## 11. 🗳️ Choosing a strategy
 
 ```mermaid
@@ -435,6 +446,7 @@ flowchart TB
 
 ---
 
+(objectives-what-the-model-learns)=
 ## 12. 🎓 Objectives: what the model learns
 
 **Strategy** = how weights change. **Objective** = what you optimize and which JSONL shape you need. They combine freely (e.g. LoRA + DPO, LoRA + GRPO).
@@ -582,10 +594,11 @@ Tuner(
 | Rank good answers above bad ones (paired) | **DPO** (or **ORPO**) |
 | Only have thumbs-up / thumbs-down labels | **KTO** |
 | Optimize a checkable string / rule | **GRPO** (after SFT) |
-| Combine several trained adapters later | Train separately → [§14 merge](#14-multi-adapter-merge-ties--dare) |
+| Combine several trained adapters later | Train separately → [§14 merge](#multi-adapter-merge-ties-dare) |
 
 ---
 
+(did-it-work-probes-holdout-ppl-judges)=
 ## 13. 🧪 Did it work? Probes, holdout PPL, judges
 
 Fine-tuning can lower **training loss** while still failing your real goal. Measure explicitly: 📏
@@ -626,6 +639,7 @@ On the tiny demo model, prefer `--judge substring`: the same 135M checkpoint is 
 
 ---
 
+(multi-adapter-merge-ties-dare)=
 ## 14. 🔀 Multi-adapter merge (TIES / DARE)
 
 After one or more PEFT runs you often have **several adapter folders** on the **same base** (e.g. SFT then DPO). **Multi-adapter** means attaching more than one of those adapters to the base at once. From there you can:
@@ -795,6 +809,7 @@ uv run slicktune probe \
 
 ---
 
+(how-slick-tune-wires-this-together)=
 ## 15. 🔌 How slick-tune wires this together
 
 ```mermaid
@@ -866,6 +881,7 @@ uv run slicktune merge \
 
 ---
 
+(guide-glossary)=
 ## 16. 📖 Glossary
 
 | Term | Meaning |
@@ -897,6 +913,7 @@ uv run slicktune merge \
 
 ---
 
+(further-reading)=
 ## 17. 🔗 Further reading
 
 - 📄 LoRA paper: [Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)
